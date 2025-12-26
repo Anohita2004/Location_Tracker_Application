@@ -199,7 +199,8 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // For any other request, send back index.html (SPA logic)
-app.get('/:path*', (req, res) => {
+// Use a version-agnostic middleware to avoid Express 5 wildcard syntax issues
+app.use((req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
