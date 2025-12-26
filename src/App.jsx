@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
+import { Menu, X, Truck, User, Calendar, LogOut, ChevronUp, ChevronDown, Navigation, History, PlayCircle, PauseCircle } from 'lucide-react';
 import MapComponent from './MapComponent';
-import { Menu, X, Navigation, Truck, User, Calendar, LogOut } from 'lucide-react';
 
-// Initialize socket connection to backend
 const socket = io('http://localhost:3000');
 
 function App() {
@@ -15,80 +14,38 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState('');
 
-  // Sidebar & Navigation State
+  // UI State
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState(null);
+  const [isSheetExpanded, setSheetExpanded] = useState(false);
+  const [mode, setMode] = useState('live'); // 'live', 'nav', 'history'
   const [selectedDate, setSelectedDate] = useState('');
   const [historyPoints, setHistoryPoints] = useState([]);
 
-  // Check for saved session on mount
+  // Init Session
   useEffect(() => {
-    const savedUser = localStorage.getItem('tracker_user');
-    if (savedUser) {
-      try {
-        const userFn = JSON.parse(savedUser);
-        if (userFn && userFn.mobile) {
-          setCurrentUser(userFn);
-          setStep('map');
-        } else {
-          setStep('login');
-        }
-      } catch (e) {
-        setStep('login');
-      }
+    const saved = localStorage.getItem('tracker_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      setCurrentUser(u);
+      setStep('map');
     } else {
       setStep('login');
     }
   }, []);
 
-  // Group Users by Region
-  const groupedUsers = useMemo(() => {
-    const groups = { North: [], South: [], East: [], West: [] };
-    users.forEach(u => {
-      if (u.mobile === currentUser?.mobile) return;
-      if (u.lat >= 22) {
-        if (u.lng < 79) groups.North.push(u);
-        else groups.East.push(u);
-      } else {
-        if (u.lng < 76) groups.West.push(u);
-        else if (u.lng > 85) groups.East.push(u);
-        else groups.South.push(u);
-      }
-    });
-    users.forEach(u => {
-      if (u.mobile.startsWith('North')) { if (!groups.North.includes(u)) groups.North.push(u); }
-      else if (u.mobile.startsWith('South')) { if (!groups.South.includes(u)) groups.South.push(u); }
-      else if (u.mobile.startsWith('East')) { if (!groups.East.includes(u)) groups.East.push(u); }
-      else if (u.mobile.startsWith('West')) { if (!groups.West.includes(u)) groups.West.push(u); }
-    });
-    Object.keys(groups).forEach(k => {
-      const seen = new Set();
-      groups[k] = groups[k].filter(item => {
-        const curr = item.mobile;
-        if (seen.has(curr)) return false;
-        seen.add(curr);
-        return true;
-      });
-    });
-    return groups;
-  }, [users, currentUser]);
-
-
-  // Socket: Listen for updates
+  // Socket sync
   useEffect(() => {
-    socket.on('initial-data', (data) => {
-      setUsers(data);
-    });
+    socket.on('initial-data', setUsers);
     socket.on('location-update', (updatedUser) => {
       setUsers(prev => {
         const idx = prev.findIndex(u => u.mobile === updatedUser.mobile);
         if (idx > -1) {
-          const newUsers = [...prev];
-          newUsers[idx] = updatedUser;
-          return newUsers;
-        } else {
-          return [...prev, updatedUser];
+          const next = [...prev];
+          next[idx] = updatedUser;
+          return next;
         }
+        return [...prev, updatedUser];
       });
     });
     return () => {
@@ -97,148 +54,197 @@ function App() {
     };
   }, []);
 
-  // Fetch History
-  useEffect(() => {
-    if (currentUser && selectedDate) {
-      axios.get(`http://localhost:3000/api/history?mobile=${currentUser.mobile}&date=${selectedDate}`)
-        .then(res => {
-          setHistoryPoints(res.data.history);
-          if (res.data.history.length === 0) {
-            setError('No location history found for this date');
-          } else {
-            setSidebarOpen(false);
-          }
-        })
-        .catch(err => console.error(err));
-    } else {
-      setHistoryPoints([]);
-    }
-  }, [selectedDate, currentUser]);
-
-  // Geolocation
+  // Geolocation watch
   useEffect(() => {
     if (step === 'map' && currentUser) {
       const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
+        (pos) => {
           axios.post('http://localhost:3000/api/update-location', {
             mobile: currentUser.mobile,
-            lat: latitude,
-            lng: longitude
-          }).catch(err => console.error('Error updating location:', err));
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          }).catch(err => console.error(err));
         },
-        (err) => console.error('Geolocation error:', err),
+        (err) => console.error(err),
         { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
       );
       return () => navigator.geolocation.clearWatch(watchId);
     }
   }, [step, currentUser]);
 
+  // Status computation for list
+  const getStatus = useCallback((lastUpdated) => {
+    if (!lastUpdated) return 'offline';
+    const diff = (new Date() - new Date(lastUpdated)) / 1000 / 60;
+    return diff > 15 ? 'offline' : 'active';
+  }, []);
+
+  // Region Grouping
+  const groupedUsers = useMemo(() => {
+    const groups = { North: [], South: [], East: [], West: [] };
+    users.forEach(u => {
+      if (u.mobile === currentUser?.mobile) return;
+      if (u.mobile.startsWith('North')) groups.North.push(u);
+      else if (u.mobile.startsWith('South')) groups.South.push(u);
+      else if (u.mobile.startsWith('East')) groups.East.push(u);
+      else if (u.mobile.startsWith('West')) groups.West.push(u);
+      else groups.North.push(u); // default
+    });
+    return groups;
+  }, [users, currentUser]);
+
+  // Handlers
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (mobile.length < 1) {
-      setError('Please enter a mobile number');
-      return;
-    }
-    setError('');
+    if (!mobile) return setError('Enter mobile');
     try {
       await axios.post('http://localhost:3000/api/login', { mobile });
       setStep('otp');
-    } catch (err) {
-      setError('Login failed.');
-    }
+      setError('');
+    } catch { setError('Login failed'); }
   };
 
-  const handleVerifyOtp = async (e) => {
+  const handleVerify = async (e) => {
     e.preventDefault();
-    setError('');
     try {
       const res = await axios.post('http://localhost:3000/api/verify-otp', { mobile, otp });
       if (res.data.success) {
-        const user = res.data.user;
-        setCurrentUser(user);
+        setCurrentUser(res.data.user);
         setStep('map');
-        localStorage.setItem('tracker_user', JSON.stringify(user));
+        localStorage.setItem('tracker_user', JSON.stringify(res.data.user));
       }
-    } catch (err) {
-      setError('Invalid OTP');
-    }
-  }
+    } catch { setError('Invalid OTP'); }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('tracker_user');
-    setCurrentUser(null);
     setStep('login');
-    setSidebarOpen(false);
-    setMobile('');
-    setOtp('');
+    setCurrentUser(null);
   };
 
-  if (step === 'loading') {
-    return <div className="loading-spinner" style={{ marginTop: '40vh' }}></div>
-  }
+  const selectTruck = (truck) => {
+    setSelectedDevice(truck);
+    setSidebarOpen(false);
+    setSheetExpanded(false);
+    setMode('live'); // reset to live detail view
+    setHistoryPoints([]);
+    setSelectedDate('');
+  };
+
+  const enterNavMode = () => {
+    setMode('nav');
+    setSheetExpanded(false);
+  };
+
+  const fetchHistory = (date) => {
+    if (!selectedDevice) return;
+    axios.get(`http://localhost:3000/api/history?mobile=${selectedDevice.mobile}&date=${date}`)
+      .then(res => {
+        setHistoryPoints(res.data.history);
+        if (res.data.history.length > 0) {
+          setMode('history');
+          setSheetExpanded(false);
+        } else {
+          setError('No history found for this date');
+          setTimeout(() => setError(''), 3000);
+        }
+      });
+  };
+
+  const resetView = () => {
+    setMode('live');
+    setSelectedDevice(null);
+    setHistoryPoints([]);
+    setSelectedDate('');
+  };
+
+  if (step === 'loading') return <div className="login-screen"><div className="pulse-me"></div></div>;
 
   return (
-    <div style={{ height: '100%', width: '100%' }}>
-      {step === 'login' && (
-        <div className="login-container">
-          <div className="glass-panel login-card animate-fade-in">
-            <h1>🚛 Live Tracker</h1>
-            <p>Enter mobile to start</p>
-            <form onSubmit={handleLogin}>
-              <input className="input-field" type="text" placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} />
-              {error && <p style={{ color: '#ef4444' }}>{error}</p>}
-              <button className="btn-primary">Get OTP</button>
+    <div className="app-container">
+      {step === 'login' || step === 'otp' ? (
+        <div className="login-screen">
+          <div className="login-card glass animate-fade">
+            <h1>FleetOps</h1>
+            <p className="input-label" style={{ textAlign: 'center' }}>Enterprise Asset Tracking</p>
+
+            <form onSubmit={step === 'login' ? handleLogin : handleVerify} style={{ marginTop: 40 }}>
+              <div className="input-group">
+                <label className="input-label">{step === 'login' ? "MOBILE NUMBER" : "OTP"}</label>
+                <input
+                  className="modern-input"
+                  value={step === 'login' ? mobile : otp}
+                  onChange={e => step === 'login' ? setMobile(e.target.value) : setOtp(e.target.value)}
+                  placeholder={step === 'login' ? "E.g. 9876543210" : "Enter 1234"}
+                  autoFocus={step === 'otp'}
+                />
+                {step === 'otp' && <small style={{ display: 'block', marginTop: 10, color: 'var(--text-sub)' }}>Test Code: <strong>1234</strong></small>}
+              </div>
+              {error && <p style={{ color: 'var(--danger)', fontSize: '0.8rem', marginBottom: 20 }}>{error}</p>}
+              <button className="btn-primary" type="submit">
+                {step === 'login' ? "Continue" : "Verify & Start"}
+              </button>
             </form>
           </div>
         </div>
-      )}
+      ) : (
+        <div className="map-viewport">
+          {/* Mode Banner */}
+          {mode !== 'live' && (
+            <div className={`mode-banner glass animate-fade ${mode}`}>
+              {mode === 'nav' ? <Navigation size={18} /> : <Calendar size={18} />}
+              <span>{mode === 'nav' ? `Routing to ${selectedDevice?.mobile}` : `Viewing History: ${selectedDate}`}</span>
+              <X size={18} style={{ marginLeft: 10, cursor: 'pointer', pointerEvents: 'auto' }} onClick={resetView} />
+            </div>
+          )}
 
-      {step === 'otp' && (
-        <div className="login-container">
-          <div className="glass-panel login-card animate-fade-in">
-            <h1>Verify OTP</h1>
-            <p>Code sent to {mobile}</p>
-            <form onSubmit={handleVerifyOtp}>
-              <input className="input-field" type="text" placeholder="OTP (1234)" value={otp} onChange={e => setOtp(e.target.value)} autoFocus />
-              {error && <p style={{ color: '#ef4444' }}>{error}</p>}
-              <button className="btn-primary">Verify</button>
-            </form>
-            <button onClick={() => setStep('login')} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', marginTop: 20 }}>Back</button>
-          </div>
-        </div>
-      )}
-
-      {step === 'map' && (
-        <div className="map-container animate-fade-in">
-          <button className="toggle-btn" onClick={() => setSidebarOpen(!isSidebarOpen)}>
-            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          {/* Sidebar Toggle */}
+          <button
+            className="fab glass"
+            style={{ position: 'absolute', top: 20, left: 20, zIndex: 100 }}
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu size={24} color="var(--primary)" />
           </button>
 
-          <div className={`sidebar glass-panel ${isSidebarOpen ? 'open' : ''}`}>
+          {/* Sidebar */}
+          <div className={`sidebar-overlay ${isSidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)}></div>
+          <div className={`primary-sidebar glass ${isSidebarOpen ? 'open' : ''}`}>
             <div className="sidebar-header">
-              <h2><User size={20} /> {currentUser?.mobile}</h2>
-              <button onClick={handleLogout} style={{ background: 'none', border: '1px solid var(--glass-border)', padding: 6 }}><LogOut size={16} /></button>
-            </div>
-
-            <div style={{ padding: 16, borderBottom: '1px solid var(--glass-border)' }}>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><Calendar size={18} /> HISTORY</div>
-              <input type="date" className="input-field" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="pulse-me" style={{ width: 10, height: 10 }}></div>
+                <span style={{ fontWeight: 700 }}>FLEET OPS</span>
+              </div>
+              <button className="fab" style={{ width: 32, height: 32 }} onClick={() => setSidebarOpen(false)}><X size={20} /></button>
             </div>
 
             <div className="sidebar-content">
+              <div style={{ marginBottom: 30, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <User size={18} color="var(--primary)" />
+                  <span style={{ fontSize: '0.9rem' }}>{currentUser?.mobile}</span>
+                </div>
+                <button onClick={handleLogout} style={{ background: 'none', border: 'none' }}><LogOut size={18} color="var(--text-sub)" /></button>
+              </div>
+
               {Object.entries(groupedUsers).map(([region, regionUsers]) => (
-                <div key={region} className="menu-category">
-                  <div className="category-title">{region} Region</div>
+                <div key={region} className="sidebar-category">
+                  <div className="category-label">{region} ({regionUsers.length})</div>
                   {regionUsers.map(u => {
-                    const isSelected = selectedDevice?.mobile === u.mobile;
+                    const status = getStatus(u.last_updated);
                     return (
-                      <div key={u.mobile} className={`device-item ${isSelected ? 'active' : ''}`} onClick={() => isSelected ? setSelectedDevice(null) : setSelectedDevice(u)} style={{ display: 'flex', alignItems: 'center' }}>
-                        <div style={{ width: 18, height: 18, border: isSelected ? 'none' : '2px solid gray', borderRadius: 4, background: isSelected ? 'var(--primary)' : 'transparent', marginRight: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {isSelected && <span style={{ color: 'white', fontSize: 12 }}>✓</span>}
+                      <div
+                        key={u.mobile}
+                        className={`device-card glass ${selectedDevice?.mobile === u.mobile ? 'selected' : ''}`}
+                        onClick={() => selectTruck(u)}
+                      >
+                        <Truck size={20} color={status === 'offline' ? 'var(--text-sub)' : 'var(--primary)'} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{u.mobile}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)' }}>
+                            {status === 'active' ? '🟢 Active' : '🔴 Offline'}
+                          </div>
                         </div>
-                        <Truck size={18} />
-                        <span style={{ marginLeft: 8 }}>{u.mobile}</span>
                       </div>
                     );
                   })}
@@ -247,11 +253,76 @@ function App() {
             </div>
           </div>
 
-          <MapComponent users={users} currentUserMobile={currentUser?.mobile} destinationUser={selectedDevice} historyPoints={historyPoints} />
+          <MapComponent
+            users={users}
+            currentUserMobile={currentUser?.mobile}
+            selectedDevice={selectedDevice}
+            historyPoints={historyPoints}
+            mode={mode}
+            onReset={resetView}
+          />
 
-          {selectedDate && (
-            <div style={{ position: 'absolute', top: 80, left: '50%', transform: 'translateX(-50%)', background: 'var(--card-bg)', padding: '8px 16px', borderRadius: 30, color: 'var(--primary)' }}>
-              History: {selectedDate}
+          {/* Bottom Sheet for Selected Truck */}
+          {selectedDevice && mode !== 'history' && (
+            <div className={`bottom-sheet glass ${isSheetExpanded ? 'expanded' : 'visible'}`}>
+              <div className="sheet-handle" onClick={() => setSheetExpanded(!isSheetExpanded)}></div>
+              <div className="sheet-header">
+                <div>
+                  <h3 style={{ fontSize: '1.2rem' }}>{selectedDevice.mobile}</h3>
+                  <span className={`badge ${getStatus(selectedDevice.last_updated) === 'active' ? 'badge-active' : 'badge-offline'}`}>
+                    {getStatus(selectedDevice.last_updated)}
+                  </span>
+                </div>
+                <button
+                  className="fab glass"
+                  style={{ width: 36, height: 36 }}
+                  onClick={() => setSelectedDevice(null)}
+                ><X size={20} /></button>
+              </div>
+
+              <div className="sheet-content">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+                  <div className="glass" style={{ padding: 12, borderRadius: 12 }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>LAST UPDATED</div>
+                    <div style={{ fontWeight: 600 }}>{new Date(selectedDevice.last_updated).toLocaleTimeString()}</div>
+                  </div>
+                  <div className="glass" style={{ padding: 12, borderRadius: 12 }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>ZONE</div>
+                    <div style={{ fontWeight: 600 }}>West Coast</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={enterNavMode}>
+                    <Navigation size={18} /> Navigate
+                  </button>
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <input
+                      type="date"
+                      className="modern-input"
+                      style={{ padding: '10px' }}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value);
+                        fetchHistory(e.target.value);
+                      }}
+                    />
+                    {!selectedDate && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--text-sub)', fontSize: '0.9rem' }}><History size={18} /> History</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* History Controls Overlay */}
+          {mode === 'history' && (
+            <div className="timeline-container glass animate-fade">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+                <button style={{ background: 'none', border: 'none' }}><PlayCircle size={32} color="var(--primary)" /></button>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>Playback: Track Movement</div>
+                  <input type="range" className="custom-slider" min="0" max="100" defaultValue="0" />
+                </div>
+              </div>
             </div>
           )}
         </div>
