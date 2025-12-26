@@ -4,7 +4,7 @@ import axios from 'axios';
 import { Menu, X, Truck, User, Calendar, LogOut, ChevronUp, ChevronDown, Navigation, History, PlayCircle, PauseCircle } from 'lucide-react';
 import MapComponent from './MapComponent';
 
-const socket = io('http://localhost:3000');
+const socket = io(); // Initialize socket connection (relative URL for production)
 
 function App() {
   const [step, setStep] = useState('loading'); // 'loading', 'login', 'otp', 'map'
@@ -59,7 +59,7 @@ function App() {
     if (step === 'map' && currentUser) {
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
-          axios.post('http://localhost:3000/api/update-location', {
+          axios.post('/api/update-location', {
             mobile: currentUser.mobile,
             lat: pos.coords.latitude,
             lng: pos.coords.longitude
@@ -98,7 +98,7 @@ function App() {
     e.preventDefault();
     if (!mobile) return setError('Enter mobile');
     try {
-      await axios.post('http://localhost:3000/api/login', { mobile });
+      await axios.post('/api/login', { mobile });
       setStep('otp');
       setError('');
     } catch { setError('Login failed'); }
@@ -107,7 +107,7 @@ function App() {
   const handleVerify = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:3000/api/verify-otp', { mobile, otp });
+      const res = await axios.post('/api/verify-otp', { mobile, otp });
       if (res.data.success) {
         setCurrentUser(res.data.user);
         setStep('map');
@@ -138,7 +138,7 @@ function App() {
 
   const fetchHistory = (date) => {
     if (!selectedDevice) return;
-    axios.get(`http://localhost:3000/api/history?mobile=${selectedDevice.mobile}&date=${date}`)
+    axios.get(`/ api / history ? mobile = ${selectedDevice.mobile}& date=${date} `)
       .then(res => {
         setHistoryPoints(res.data.history);
         if (res.data.history.length > 0) {
@@ -191,9 +191,9 @@ function App() {
         <div className="map-viewport">
           {/* Mode Banner */}
           {mode !== 'live' && (
-            <div className={`mode-banner glass animate-fade ${mode}`}>
+            <div className={`mode - banner glass animate - fade ${mode} `}>
               {mode === 'nav' ? <Navigation size={18} /> : <Calendar size={18} />}
-              <span>{mode === 'nav' ? `Routing to ${selectedDevice?.mobile}` : `Viewing History: ${selectedDate}`}</span>
+              <span>{mode === 'nav' ? `Routing to ${selectedDevice?.mobile} ` : `Viewing History: ${selectedDate} `}</span>
               <X size={18} style={{ marginLeft: 10, cursor: 'pointer', pointerEvents: 'auto' }} onClick={resetView} />
             </div>
           )}
@@ -208,8 +208,8 @@ function App() {
           </button>
 
           {/* Sidebar */}
-          <div className={`sidebar-overlay ${isSidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)}></div>
-          <div className={`primary-sidebar glass ${isSidebarOpen ? 'open' : ''}`}>
+          <div className={`sidebar - overlay ${isSidebarOpen ? 'visible' : ''} `} onClick={() => setSidebarOpen(false)}></div>
+          <div className={`primary - sidebar glass ${isSidebarOpen ? 'open' : ''} `}>
             <div className="sidebar-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div className="pulse-me" style={{ width: 10, height: 10 }}></div>
@@ -227,6 +227,36 @@ function App() {
                 <button onClick={handleLogout} style={{ background: 'none', border: 'none' }}><LogOut size={18} color="var(--text-sub)" /></button>
               </div>
 
+              {/* Personal History Filter */}
+              <div className="glass" style={{ padding: 16, borderRadius: 12, marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>
+                  <History size={16} /> MY HISTORY
+                </div>
+                <input
+                  type="date"
+                  className="modern-input"
+                  style={{ padding: '8px 12px', fontSize: '0.9rem' }}
+                  value={selectedDate}
+                  onChange={(e) => {
+                    const date = e.target.value;
+                    setSelectedDate(date);
+                    // Fetch history for SELF
+                    axios.get(`/ api / history ? mobile = ${currentUser.mobile}& date=${date} `)
+                      .then(res => {
+                        setHistoryPoints(res.data.history);
+                        if (res.data.history.length > 0) {
+                          setMode('history');
+                          setSidebarOpen(false);
+                        } else {
+                          setError('No history found for today');
+                          setTimeout(() => setError(''), 3000);
+                        }
+                      });
+                  }}
+                />
+              </div>
+
+              <div className="category-label">FLEET REGIONS</div>
               {Object.entries(groupedUsers).map(([region, regionUsers]) => (
                 <div key={region} className="sidebar-category">
                   <div className="category-label">{region} ({regionUsers.length})</div>
@@ -235,7 +265,7 @@ function App() {
                     return (
                       <div
                         key={u.mobile}
-                        className={`device-card glass ${selectedDevice?.mobile === u.mobile ? 'selected' : ''}`}
+                        className={`device - card glass ${selectedDevice?.mobile === u.mobile ? 'selected' : ''} `}
                         onClick={() => selectTruck(u)}
                       >
                         <Truck size={20} color={status === 'offline' ? 'var(--text-sub)' : 'var(--primary)'} />
@@ -264,12 +294,12 @@ function App() {
 
           {/* Bottom Sheet for Selected Truck */}
           {selectedDevice && mode !== 'history' && (
-            <div className={`bottom-sheet glass ${isSheetExpanded ? 'expanded' : 'visible'}`}>
+            <div className={`bottom - sheet glass ${isSheetExpanded ? 'expanded' : 'visible'} `}>
               <div className="sheet-handle" onClick={() => setSheetExpanded(!isSheetExpanded)}></div>
               <div className="sheet-header">
                 <div>
                   <h3 style={{ fontSize: '1.2rem' }}>{selectedDevice.mobile}</h3>
-                  <span className={`badge ${getStatus(selectedDevice.last_updated) === 'active' ? 'badge-active' : 'badge-offline'}`}>
+                  <span className={`badge ${getStatus(selectedDevice.last_updated) === 'active' ? 'badge-active' : 'badge-offline'} `}>
                     {getStatus(selectedDevice.last_updated)}
                   </span>
                 </div>

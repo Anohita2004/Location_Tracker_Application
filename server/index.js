@@ -4,8 +4,13 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const { Pool } = pg;
 const app = express();
@@ -21,12 +26,18 @@ const io = new Server(server, {
 });
 
 // Database Connection
-const pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_DATABASE || 'location_tracker',
-    password: process.env.DB_PASSWORD || 'password',
-    port: process.env.DB_PORT || 5432,
+const pool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    // Support local fallback if DATABASE_URL is missing
+    ...(process.env.DATABASE_URL ? {
+        ssl: { rejectUnauthorized: false }
+    } : {
+        user: process.env.DB_USER || 'postgres',
+        host: process.env.DB_HOST || 'localhost',
+        database: process.env.DB_DATABASE || 'location_tracker',
+        password: process.env.DB_PASSWORD || 'password',
+        port: process.env.DB_PORT || 5432,
+    })
 });
 
 // Initialize DB and Seed Data
@@ -181,6 +192,15 @@ app.post('/api/update-location', async (req, res) => {
         console.error(err);
         res.status(500).json({ error: 'Database error' });
     }
+});
+
+// Serve Static Assets in Production
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// For any other request, send back index.html (SPA logic)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
