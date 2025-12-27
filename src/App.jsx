@@ -21,6 +21,7 @@ function App() {
   const [mode, setMode] = useState('live');
   const [selectedDate, setSelectedDate] = useState('');
   const [historyPoints, setHistoryPoints] = useState([]);
+  const [distance, setDistance] = useState(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('tracker_user');
@@ -155,6 +156,11 @@ function App() {
     setSelectedDevice(null);
     setHistoryPoints([]);
     setSelectedDate('');
+    setDistance(null);
+  };
+
+  const handleDistanceUpdate = (dist) => {
+    setDistance(dist);
   };
 
   if (step === 'loading') return <div className="login-screen"><div className="pulse-me"></div></div>;
@@ -270,6 +276,7 @@ function App() {
             historyPoints={historyPoints}
             mode={mode}
             onReset={resetView}
+            onDistanceUpdate={handleDistanceUpdate}
           />
 
           {selectedDevice && mode !== 'history' && (
@@ -292,8 +299,14 @@ function App() {
                     <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{new Date(selectedDevice.last_updated).toLocaleTimeString()}</div>
                   </div>
                   <div className="glass" style={{ padding: 12, borderRadius: 12 }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 600, marginBottom: 4 }}>REGION</div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Logistics Zone A</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 600, marginBottom: 4 }}>
+                      {mode === 'nav' ? 'DISTANCE' : 'REGION'}
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                      {mode === 'nav' && distance !== null 
+                        ? (distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`)
+                        : 'Logistics Zone A'}
+                    </div>
                   </div>
                 </div>
 
