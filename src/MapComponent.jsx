@@ -84,17 +84,45 @@ const MapComponent = ({
         return diff > 15 ? 'offline' : 'active';
     };
 
+    // Decode polyline (if ORS returns encoded polyline)
+    const decodePolyline = (encoded) => {
+        const poly = [];
+        let index = 0;
+        const len = encoded.length;
+        let lat = 0;
+        let lng = 0;
+
+        while (index < len) {
+            let b;
+            let shift = 0;
+            let result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            const dlat = ((result & 1) !== 0) ? ~(result >> 1) : (result >> 1);
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            const dlng = ((result & 1) !== 0) ? ~(result >> 1) : (result >> 1);
+            lng += dlng;
+
+            poly.push([lat * 1e-5, lng * 1e-5]);
+        }
+        return poly;
+    };
+
     // Fetch route from OpenRouteService API
     const fetchRoute = useCallback(async (start, end) => {
-        if (!start || !end) {
-            // Fallback to straight line
-            const distance = calculateDistance(start.lat, start.lng, end.lat, end.lng);
-            setRouteDistance(distance);
-            if (onDistanceUpdate) onDistanceUpdate(distance);
-            setRouteCoordinates([
-                [start.lat, start.lng],
-                [end.lat, end.lng]
-            ]);
+        if (!start || !end || !start.lat || !start.lng || !end.lat || !end.lng) {
+            console.error('Invalid start or end coordinates');
             return;
         }
 
@@ -104,35 +132,81 @@ const MapComponent = ({
             // Get free API key from https://openrouteservice.org/dev/#/signup
             const apiKey = import.meta.env.VITE_ORS_API_KEY || '';
             
-            // If no API key, use demo endpoint (limited requests)
-            // For production, get a free API key from OpenRouteService
-            const url = apiKey 
-                ? `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${start.lng},${start.lat}&end=${end.lng},${end.lat}`
-                : `https://api.openrouteservice.org/v2/directions/driving-car?start=${start.lng},${start.lat}&end=${end.lng},${end.lat}`;
+            // Build the URL with proper parameters
+            let url;
+            if (apiKey) {
+                // With API key - use full features
+                url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${start.lng},${start.lat}&end=${end.lng},${end.lat}&geometry=true&geometry_format=geojson`;
+            } else {
+                // Try without API key (may have rate limits)
+                url = `https://api.openrouteservice.org/v2/directions/driving-car?start=${start.lng},${start.lat}&end=${end.lng},${end.lat}&geometry=true&geometry_format=geojson`;
+            }
             
-            const response = await axios.get(url);
+            console.log('Fetching route from OpenRouteService...');
+            const response = await axios.get(url, {
+                timeout: 10000, // 10 second timeout
+                headers: {
+                    'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8'
+                }
+            });
             
-            if (response.data.routes && response.data.routes.length > 0) {
+            if (response.data && response.data.routes && response.data.routes.length > 0) {
                 const route = response.data.routes[0];
                 const distance = route.summary.distance / 1000; // Convert meters to kilometers
                 setRouteDistance(distance);
                 if (onDistanceUpdate) onDistanceUpdate(distance);
                 
                 // Extract coordinates from the route geometry
-                // ORS returns coordinates as [lng, lat], Leaflet needs [lat, lng]
-                const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                setRouteCoordinates(coordinates);
+                let coordinates = [];
+                
+                if (route.geometry) {
+                    if (route.geometry.type === 'LineString' && Array.isArray(route.geometry.coordinates)) {
+                        // GeoJSON format: coordinates are [lng, lat]
+                        coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    } else if (typeof route.geometry === 'string') {
+                        // Encoded polyline - decode it
+                        coordinates = decodePolyline(route.geometry).map(coord => [coord[0], coord[1]]);
+                    }
+                }
+                
+                if (coordinates.length > 0) {
+                    setRouteCoordinates(coordinates);
+                    console.log('Route fetched successfully:', coordinates.length, 'points');
+                } else {
+                    throw new Error('No coordinates in route geometry');
+                }
+            } else {
+                throw new Error('No routes returned from API');
             }
         } catch (error) {
-            console.error('Error fetching route:', error);
-            // Fallback to straight line
-            const distance = calculateDistance(start.lat, start.lng, end.lat, end.lng);
-            setRouteDistance(distance);
-            if (onDistanceUpdate) onDistanceUpdate(distance);
-            setRouteCoordinates([
-                [start.lat, start.lng],
-                [end.lat, end.lng]
-            ]);
+            console.error('Error fetching route from OpenRouteService:', error);
+            
+            // Try alternative: OSRM (Open Source Routing Machine) - free, no API key needed
+            try {
+                console.log('Trying OSRM as fallback...');
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+                const osrmResponse = await axios.get(osrmUrl, { timeout: 10000 });
+                
+                if (osrmResponse.data && osrmResponse.data.routes && osrmResponse.data.routes.length > 0) {
+                    const route = osrmResponse.data.routes[0];
+                    const distance = route.distance / 1000; // Convert meters to kilometers
+                    setRouteDistance(distance);
+                    if (onDistanceUpdate) onDistanceUpdate(distance);
+                    
+                    // OSRM returns GeoJSON format
+                    const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    setRouteCoordinates(coordinates);
+                    console.log('Route fetched from OSRM successfully:', coordinates.length, 'points');
+                } else {
+                    throw new Error('OSRM returned no routes');
+                }
+            } catch (osrmError) {
+                console.error('OSRM also failed:', osrmError);
+                // Last resort: show error message but don't use straight line
+                setMapError('Unable to fetch road route. Please check your internet connection or add an OpenRouteService API key.');
+                setRouteCoordinates([]);
+                setRouteDistance(null);
+            }
         } finally {
             setIsLoadingRoute(false);
         }
