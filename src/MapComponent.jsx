@@ -1,18 +1,105 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
+import React, { useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Crosshair, Maximize, RotateCcw } from 'lucide-react';
 
-const containerStyle = { width: '100%', height: '100%' };
+// Define custom icons using L.divIcon to match previous aesthetic
+const createCustomIcon = (type, status, isSelected) => {
+    const color = status === 'active' ? '#10b981' : '#64748b';
+    const borderColor = isSelected ? '#f59e0b' : 'white';
+    const scale = isSelected ? 40 : 32;
+    const border = isSelected ? 3 : 2;
+    const zIndex = isSelected ? 1000 : 1;
 
-const darkMapStyle = [
-    { elementType: "geometry", stylers: [{ color: "#0f172a" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#0f172a" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#64748b" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#020617" }] },
-    { featureType: "poi", stylers: [{ visibility: "off" }] },
-    { featureType: "transit", stylers: [{ visibility: "off" }] }
-];
+    // Pulse effect for active markers
+    const pulseClass = status === 'active' ? 'marker-pulse' : '';
+
+    return L.divIcon({
+        className: `custom-marker ${pulseClass}`,
+        html: `
+            <div style="
+                width: ${scale}px;
+                height: ${scale}px;
+                background-color: ${color};
+                border: ${border}px solid ${borderColor};
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            ">
+                <span style="font-size: ${scale / 2}px;">${type === 'me' ? '🔵' : '🚛'}</span>
+            </div>
+            ${isSelected ? `<div class="marker-label" style="
+                position: absolute;
+                bottom: -25px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #1e293b;
+                color: white;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: bold;
+                white-space: nowrap;
+            ">Selected</div>` : ''}
+        `,
+        iconSize: [scale, scale],
+        iconAnchor: [scale / 2, scale / 2],
+        popupAnchor: [0, -scale / 2],
+        zIndexOffset: zIndex
+    });
+};
+
+const meIcon = L.divIcon({
+    className: 'custom-marker me-marker',
+    html: `
+        <div style="
+            width: 24px;
+            height: 24px;
+            background-color: #3b82f6;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+        "></div>
+    `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+});
+
+// Component to handle map movements (similar to effects in previous version)
+const MapController = ({ mode, users, me, selectedDevice, onFitAll, hasInitialFit }) => {
+    const map = useMap();
+
+    // Handle Initial Fit / Mode Fit
+    useEffect(() => {
+        if (mode === 'live' && users.length > 0 && !hasInitialFit.current) {
+            // Fit bounds of all users
+            const group = L.featureGroup(users.map(u => L.marker([u.lat, u.lng])));
+            // If valid bounds
+            if (group.getBounds().isValid()) {
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                hasInitialFit.current = true;
+            }
+        }
+    }, [mode, users.length, map, hasInitialFit]); // Depend on length to trigger when data arrives
+
+    // Handle Nav Fit
+    useEffect(() => {
+        if (mode === 'nav' && me && selectedDevice) {
+            const group = L.featureGroup([
+                L.marker([me.lat, me.lng]),
+                L.marker([selectedDevice.lat, selectedDevice.lng])
+            ]);
+            if (group.getBounds().isValid()) {
+                map.fitBounds(group.getBounds(), { padding: [100, 100] });
+            }
+        }
+    }, [mode, me, selectedDevice, map]);
+
+    return null;
+};
 
 const MapComponent = ({
     users,
@@ -22,14 +109,10 @@ const MapComponent = ({
     mode = 'live',
     onReset
 }) => {
-    const { isLoaded } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ""
-    });
+    const mapRef = useRef(null);
+    const hasInitialFit = useRef(false);
 
-    const [map, setMap] = useState(null);
-
-    const me = useMemo(() => users.find(u => u.mobile === currentUserMobile), [users, currentUserMobile]);
+    const me = users.find(u => u.mobile === currentUserMobile);
 
     const getStatus = (lastUpdated) => {
         if (!lastUpdated) return 'offline';
@@ -37,55 +120,66 @@ const MapComponent = ({
         return diff > 15 ? 'offline' : 'active';
     };
 
-    const handleCenterOnMe = useCallback(() => {
-        if (map && me?.lat) {
-            map.panTo({ lat: me.lat, lng: me.lng });
-            map.setZoom(14);
+    const handleCenterOnMe = () => {
+        if (mapRef.current && me) {
+            mapRef.current.flyTo([me.lat, me.lng], 15);
         }
-    }, [map, me]);
+    };
 
-    const handleFitAll = useCallback(() => {
-        if (!map || users.length === 0) return;
-        const bounds = new window.google.maps.LatLngBounds();
-        let hasCoords = false;
-        users.forEach(u => {
-            if (u.lat && u.lng) {
-                bounds.extend({ lat: u.lat, lng: u.lng });
-                hasCoords = true;
+    const handleFitAll = () => {
+        if (mapRef.current && users.length > 0) {
+            const validUsers = users.filter(u => u.lat && u.lng);
+            if (validUsers.length === 0) return;
+            const group = L.featureGroup(validUsers.map(u => L.marker([u.lat, u.lng])));
+            if (group.getBounds().isValid()) {
+                mapRef.current.fitBounds(group.getBounds(), { padding: [50, 50] });
             }
-        });
-        if (hasCoords) map.fitBounds(bounds, { top: 100, bottom: 200, left: 100, right: 100 });
-    }, [map, users]);
-
-    useEffect(() => {
-        if (mode === 'live' && map) handleFitAll();
-    }, [mode, map, handleFitAll]);
-
-    useEffect(() => {
-        if (mode === 'nav' && map && me && selectedDevice) {
-            const bounds = new window.google.maps.LatLngBounds();
-            bounds.extend({ lat: me.lat, lng: me.lng });
-            bounds.extend({ lat: selectedDevice.lat, lng: selectedDevice.lng });
-            map.fitBounds(bounds, { top: 100, bottom: 300, left: 100, right: 100 });
         }
-    }, [mode, map, me, selectedDevice]);
+    };
 
-    if (!isLoaded) return <div className="login-screen"><div className="pulse-me"></div></div>;
+    // Reset initial fit when mode changes back to live
+    useEffect(() => {
+        if (mode !== 'live') hasInitialFit.current = false;
+    }, [mode]);
+
+    // Default center (India)
+    const defaultCenter = [20.5937, 78.9629];
+    const initialCenter = me ? [me.lat, me.lng] : defaultCenter;
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0f172a' }}>
-            <GoogleMap
-                mapContainerStyle={containerStyle}
-                center={me ? { lat: me.lat, lng: me.lng } : { lat: 20.5937, lng: 78.9629 }}
-                zoom={me ? 12 : 5}
-                onLoad={setMap}
-                onUnmount={() => setMap(null)}
-                options={{
-                    styles: darkMapStyle,
-                    disableDefaultUI: true,
-                    clickableIcons: false
-                }}
+            <MapContainer
+                center={initialCenter}
+                zoom={5}
+                style={{ height: '100%', width: '100%', background: '#0f172a' }}
+                zoomControl={false}
+                ref={mapRef}
             >
+                {/* 
+                    Tile Layer Options:
+                    1. OpenStreetMap (Standard): 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                    2. CartoDB Dark Matter: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                    3. Esri World Imagery (Satellite): 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                    
+                    User asked for "Detailed". Standard OSM is best for street detail.
+                    But to keep it premium, dark mode is nice. 
+                    Let's use a high-contrast OSM style or CartoDB Voyager.
+                    Actually, let's use the Standard OSM because it IS detailed.
+                */}
+                <TileLayer
+                    attribution='&copy; OpenStreetMap contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+
+                <MapController
+                    mode={mode}
+                    users={users}
+                    me={me}
+                    selectedDevice={selectedDevice}
+                    onFitAll={handleFitAll}
+                    hasInitialFit={hasInitialFit}
+                />
+
                 {users.map(u => {
                     if (!u.lat || !u.lng) return null;
                     const isMe = u.mobile === currentUserMobile;
@@ -96,15 +190,8 @@ const MapComponent = ({
                         return (
                             <Marker
                                 key="me"
-                                position={{ lat: u.lat, lng: u.lng }}
-                                icon={{
-                                    path: window.google.maps.SymbolPath.CIRCLE,
-                                    scale: 12,
-                                    fillColor: "#3b82f6",
-                                    fillOpacity: 1,
-                                    strokeColor: "white",
-                                    strokeWeight: 3,
-                                }}
+                                position={[u.lat, u.lng]}
+                                icon={meIcon}
                             />
                         );
                     }
@@ -112,47 +199,39 @@ const MapComponent = ({
                     return (
                         <Marker
                             key={u.mobile}
-                            position={{ lat: u.lat, lng: u.lng }}
-                            options={{
-                                opacity: status === 'offline' ? 0.6 : 1,
-                                label: {
-                                    text: isSelected ? "🎯" : "🚛",
-                                    color: "white",
-                                    fontSize: "14px",
-                                    fontWeight: "bold"
-                                },
-                                icon: {
-                                    url: isSelected ? 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                                    scaledSize: isSelected ? new window.google.maps.Size(40, 40) : new window.google.maps.Size(32, 32)
+                            position={[u.lat, u.lng]}
+                            icon={createCustomIcon('truck', status, isSelected)}
+                            eventHandlers={{
+                                click: () => {
+                                    // Normally we'd callback to App to select, but App handles selection via sidebar mostly.
+                                    // We can add an onSelect prop if needed, but for now just visual.
                                 }
                             }}
-                        />
+                        >
+                            {/* Optional Popup */}
+                        </Marker>
                     );
                 })}
 
                 {mode === 'nav' && me && selectedDevice && (
                     <Polyline
-                        path={[{ lat: me.lat, lng: me.lng }, { lat: selectedDevice.lat, lng: selectedDevice.lng }]}
-                        options={{
-                            strokeColor: "#3b82f6",
-                            strokeOpacity: 0.9,
-                            strokeWeight: 5,
-                            geodesic: true
-                        }}
+                        positions={[[me.lat, me.lng], [selectedDevice.lat, selectedDevice.lng]]}
+                        pathOptions={{ color: '#3b82f6', weight: 4, dashArray: '10, 10', opacity: 0.8 }}
                     />
                 )}
 
                 {mode === 'history' && historyPoints.length > 0 && (
                     <>
                         <Polyline
-                            path={historyPoints.map(p => ({ lat: p.lat, lng: p.lng }))}
-                            options={{ strokeColor: "#10b981", strokeWeight: 5, strokeOpacity: 0.8 }}
+                            positions={historyPoints.map(p => [p.lat, p.lng])}
+                            pathOptions={{ color: '#10b981', weight: 4 }}
                         />
-                        <Marker position={{ lat: historyPoints[0].lat, lng: historyPoints[0].lng }} label="A" />
-                        <Marker position={{ lat: historyPoints[historyPoints.length - 1].lat, lng: historyPoints[historyPoints.length - 1].lng }} label="B" />
+                        <Marker position={[historyPoints[0].lat, historyPoints[0].lng]} icon={createCustomIcon('start', 'active', false)} />
+                        <Marker position={[historyPoints[historyPoints.length - 1].lat, historyPoints[historyPoints.length - 1].lng]} icon={createCustomIcon('end', 'active', false)} />
                     </>
                 )}
-            </GoogleMap>
+
+            </MapContainer>
 
             <div className="floating-controls">
                 <button className="fab glass" onClick={handleCenterOnMe}>

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: location-tracker
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: location-tracker-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: location-tracker-db
+    plan: free

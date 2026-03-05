@@ -17,6 +17,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Request Logger
+app.use((req, res, next) => {
+    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.originalUrl} from ${req.ip}`);
+    next();
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -205,6 +211,6 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Backend Server running on port ${PORT}`);
 });

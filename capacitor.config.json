@@ -1,0 +1,5 @@
+{
+  "appId": "io.fleetops.tracker",
+  "appName": "LocationTracker",
+  "webDir": "dist"
+}

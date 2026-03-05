@@ -4,9 +4,14 @@ import axios from 'axios';
 import { Menu, X, Truck, User, Calendar, LogOut, Navigation, History, PlayCircle } from 'lucide-react';
 import MapComponent from './MapComponent';
 
-const socket = io();
+import { Geolocation } from '@capacitor/geolocation';
+
+const socket = io(import.meta.env.VITE_API_URL || undefined);
 
 function App() {
+  // Configure Axios defaults
+  axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
+
   const [step, setStep] = useState('loading');
   const [mobile, setMobile] = useState('');
   const [otp, setOtp] = useState('');
@@ -54,24 +59,58 @@ function App() {
     };
   }, []);
 
+  const [isTransmitting, setIsTransmitting] = useState(false);
+
   useEffect(() => {
-    if (step === 'map' && currentUser) {
-      const watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          axios.post('/api/update-location', {
-            mobile: currentUser.mobile,
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
-          }).catch(err => console.error(err));
-        },
-        (err) => {
-          if (err.code === 3) setError('GPS connection slow...');
-          else setError('Location permission required');
-        },
-        { enableHighAccuracy: true, timeout: 60000, maximumAge: 10000 }
-      );
-      return () => navigator.geolocation.clearWatch(watchId);
-    }
+    let watchId = null;
+
+    const startTracking = async () => {
+      if (step === 'map' && currentUser) {
+        try {
+          const permission = await Geolocation.requestPermissions();
+          if (permission.location !== 'granted') {
+            setError('Location permission denied');
+            return;
+          }
+
+          watchId = await Geolocation.watchPosition(
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 },
+            async (pos, err) => {
+              if (err) {
+                console.error('GPS Error:', err);
+                setError('GPS signal weak or unavailable');
+                return;
+              }
+              if (pos) {
+                setIsTransmitting(true);
+                try {
+                  await axios.post('/api/update-location', {
+                    mobile: currentUser.mobile,
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude
+                  });
+                  setError(''); // Clear any previous GPS errors
+                } catch (apiErr) {
+                  console.error(apiErr);
+                } finally {
+                  setTimeout(() => setIsTransmitting(false), 800);
+                }
+              }
+            }
+          );
+        } catch (e) {
+          setError('Error initializing GPS: ' + e.message);
+        }
+      }
+    };
+
+    startTracking();
+
+    return () => {
+      if (watchId != null) {
+        Geolocation.clearWatch({ id: watchId });
+      }
+    };
   }, [step, currentUser]);
 
   const getStatus = useCallback((lastUpdated) => {
@@ -100,7 +139,10 @@ function App() {
       await axios.post('/api/login', { mobile });
       setStep('otp');
       setError('');
-    } catch { setError('Login failed'); }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Login failed');
+    }
   };
 
   const handleVerify = async (e) => {
@@ -185,6 +227,13 @@ function App() {
                 {step === 'login' ? "Get Started" : "Verify"}
               </button>
             </form>
+
+            {/* Debug Info */}
+            <div style={{ marginTop: 20, padding: 10, background: 'rgba(0,0,0,0.3)', borderRadius: 8, fontSize: '0.7rem', color: '#94a3b8', textAlign: 'left' }}>
+              <p><strong>Debug:</strong></p>
+              <p>Target Server: {axios.defaults.baseURL || '(empty)'}</p>
+              {error && <p style={{ color: '#ef4444', marginTop: 4 }}>Error: {error}</p>}
+            </div>
           </div>
         </div>
       ) : (
@@ -197,9 +246,34 @@ function App() {
             </div>
           )}
 
-          <button className="fab glass" style={{ position: 'absolute', top: 20, left: 20, zIndex: 100 }} onClick={() => setSidebarOpen(true)}>
+          <button className="fab glass" style={{ position: 'absolute', top: 20, left: 20, zIndex: 1100 }} onClick={() => setSidebarOpen(true)}>
             <Menu size={24} color="var(--primary)" />
           </button>
+
+          {/* Live Broadcasting Indicator */}
+          <div className="glass" style={{
+            position: 'absolute',
+            top: 20,
+            right: 20,
+            zIndex: 1100,
+            padding: '8px 12px',
+            borderRadius: 30,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <div style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: isTransmitting ? '#10b981' : '#64748b',
+              boxShadow: isTransmitting ? '0 0 10px #10b981' : 'none',
+              transition: 'all 0.2s'
+            }}></div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'white' }}>
+              {isTransmitting ? 'BROADCASTING' : 'GPS READY'}
+            </span>
+          </div>
 
           <div className={`sidebar-overlay ${isSidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)}></div>
           <div className={`primary-sidebar glass ${isSidebarOpen ? 'open' : ''}`}>

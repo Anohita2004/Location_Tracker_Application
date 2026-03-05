@@ -29,6 +29,8 @@ body {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 #root {
@@ -102,8 +104,32 @@ body {
   align-items: center;
   justify-content: center;
   background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
-  z-index: 1000;
+  z-index: 3000;
   padding: 20px;
+}
+
+/* Leaflet Marker Styles */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.marker-pulse>div {
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 15px rgba(16, 185, 129, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
 .login-card {
@@ -120,6 +146,7 @@ body {
   font-weight: 700;
   background: linear-gradient(to right, #3b82f6, #60a5fa);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -188,7 +215,7 @@ body {
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 1100;
   padding: 8px 16px;
   border-radius: 30px;
   font-weight: 600;
@@ -218,7 +245,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  z-index: 10;
+  z-index: 1100;
 }
 
 .fab {
@@ -241,7 +268,7 @@ body {
   position: fixed;
   inset: 0;
   width: 300px;
-  z-index: 500;
+  z-index: 2000;
   transform: translateX(-100%);
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -257,7 +284,7 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
-  z-index: 499;
+  z-index: 1999;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -289,7 +316,7 @@ body {
   left: 0;
   right: 0;
   height: 400px;
-  z-index: 200;
+  z-index: 1500;
   transform: translateY(100%);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   border-radius: 24px 24px 0 0;
