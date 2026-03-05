@@ -50,5 +50,6 @@ Our server automatically translates your SAP data to our map system:
 ---
 
 ## 🔒 No-Hassle Authentication
-- **Whitelist**: No OTP or User Login required.
+- **Whitelist**: No OTP or User Login required for backend calls.
+- **Direct Map View**: To view the live map instantly without an OTP screen, use this link: **[Live Fleet Monitor](https://location-tracker-k3hg.onrender.com/?view=fleet)**
 - **Immediate Effect**: The map dashboard will pulse and move the truck(s) the second your ABAP system sends the data.

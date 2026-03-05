@@ -29,6 +29,13 @@ function App() {
   const [distance, setDistance] = useState(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'fleet') {
+      setCurrentUser({ mobile: 'Fleet-Manager' });
+      setStep('map');
+      return;
+    }
+
     const saved = localStorage.getItem('tracker_user');
     if (saved) {
       try {
