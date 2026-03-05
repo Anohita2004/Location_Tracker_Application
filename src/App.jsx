@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
-import { Menu, X, Truck, User, Calendar, LogOut, Navigation, History, PlayCircle } from 'lucide-react';
+import { Menu, X, Truck, User, Calendar, LogOut, Navigation, History, PlayCircle, RotateCcw } from 'lucide-react';
 import MapComponent from './MapComponent';
 
 import { Geolocation } from '@capacitor/geolocation';
 
-const socket = io(import.meta.env.VITE_API_URL || undefined);
+const socket = io();
 
 function App() {
   // Configure Axios defaults
-  axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
+  axios.defaults.baseURL = '/';
 
   const [step, setStep] = useState('loading');
   const [mobile, setMobile] = useState('');
