@@ -1,13 +1,26 @@
-import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Crosshair, Maximize, RotateCcw } from 'lucide-react';
+import axios from 'axios';
 
-// Define custom icons using L.divIcon to match previous aesthetic
+// Fix for default marker icons in Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+// Dark theme tile layer
+const DARK_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const DARK_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+// Define custom icons using L.divIcon
 const createCustomIcon = (type, status, isSelected) => {
     const color = status === 'active' ? '#10b981' : '#64748b';
-    const borderColor = isSelected ? '#f59e0b' : 'white';
+    const borderColor = isSelected ? '#3b82f6' : 'white';
     const scale = isSelected ? 40 : 32;
     const border = isSelected ? 3 : 2;
     const zIndex = isSelected ? 1000 : 1;
@@ -31,19 +44,6 @@ const createCustomIcon = (type, status, isSelected) => {
             ">
                 <span style="font-size: ${scale / 2}px;">${type === 'me' ? '🔵' : '🚛'}</span>
             </div>
-            ${isSelected ? `<div class="marker-label" style="
-                position: absolute;
-                bottom: -25px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #1e293b;
-                color: white;
-                padding: 2px 6px;
-                border-radius: 4px;
-                font-size: 10px;
-                font-weight: bold;
-                white-space: nowrap;
-            ">Selected</div>` : ''}
         `,
         iconSize: [scale, scale],
         iconAnchor: [scale / 2, scale / 2],
@@ -68,38 +68,42 @@ const meIcon = L.divIcon({
     iconAnchor: [12, 12]
 });
 
-// Component to handle map movements (similar to effects in previous version)
-const MapController = ({ mode, users, me, selectedDevice, onFitAll, hasInitialFit }) => {
+// Calculate distance using Haversine formula
+const calculateDistance = (lat1, lng1, lat2, lng2) => {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
+const formatDistance = (km) => {
+    if (km < 1) return `${Math.round(km * 1000)}m`;
+    return `${km.toFixed(1)}km`;
+};
+
+// Component to handle map view updates
+function MapController({ center, zoom, bounds }) {
     const map = useMap();
-
-    // Handle Initial Fit / Mode Fit
+    
     useEffect(() => {
-        if (mode === 'live' && users.length > 0 && !hasInitialFit.current) {
-            // Fit bounds of all users
-            const group = L.featureGroup(users.map(u => L.marker([u.lat, u.lng])));
-            // If valid bounds
-            if (group.getBounds().isValid()) {
-                map.fitBounds(group.getBounds(), { padding: [50, 50] });
-                hasInitialFit.current = true;
-            }
+        if (center && zoom && !bounds) {
+            map.setView(center, zoom);
         }
-    }, [mode, users.length, map, hasInitialFit]); // Depend on length to trigger when data arrives
+    }, [map, center, zoom, bounds]);
 
-    // Handle Nav Fit
     useEffect(() => {
-        if (mode === 'nav' && me && selectedDevice) {
-            const group = L.featureGroup([
-                L.marker([me.lat, me.lng]),
-                L.marker([selectedDevice.lat, selectedDevice.lng])
-            ]);
-            if (group.getBounds().isValid()) {
-                map.fitBounds(group.getBounds(), { padding: [100, 100] });
-            }
+        if (bounds && bounds.length > 0) {
+            map.fitBounds(bounds, { padding: [100, 100] });
         }
-    }, [mode, me, selectedDevice, map]);
+    }, [map, bounds]);
 
     return null;
-};
+}
 
 const MapComponent = ({
     users,
@@ -107,12 +111,18 @@ const MapComponent = ({
     selectedDevice,
     historyPoints = [],
     mode = 'live',
-    onReset
+    onReset,
+    onDistanceUpdate
 }) => {
+    const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]);
+    const [mapZoom, setMapZoom] = useState(5);
+    const [mapBounds, setMapBounds] = useState(null);
+    const [routeCoordinates, setRouteCoordinates] = useState([]);
+    const [routeDistance, setRouteDistance] = useState(null);
+    const [isLoadingRoute, setIsLoadingRoute] = useState(false);
     const mapRef = useRef(null);
-    const hasInitialFit = useRef(false);
 
-    const me = users.find(u => u.mobile === currentUserMobile);
+    const me = useMemo(() => users.find(u => u.mobile === currentUserMobile), [users, currentUserMobile]);
 
     const getStatus = (lastUpdated) => {
         if (!lastUpdated) return 'offline';
@@ -120,65 +130,122 @@ const MapComponent = ({
         return diff > 15 ? 'offline' : 'active';
     };
 
-    const handleCenterOnMe = () => {
-        if (mapRef.current && me) {
-            mapRef.current.flyTo([me.lat, me.lng], 15);
+    // Decode polyline (if ORS returns encoded polyline)
+    const decodePolyline = (encoded) => {
+        const poly = [];
+        let index = 0;
+        const len = encoded.length;
+        let lat = 0;
+        let lng = 0;
+
+        while (index < len) {
+            let b;
+            let shift = 0;
+            let result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            const dlat = ((result & 1) !== 0) ? ~(result >> 1) : (result >> 1);
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            const dlng = ((result & 1) !== 0) ? ~(result >> 1) : (result >> 1);
+            lng += dlng;
+
+            poly.push([lat * 1e-5, lng * 1e-5]);
         }
+        return poly;
     };
 
-    const handleFitAll = () => {
-        if (mapRef.current && users.length > 0) {
-            const validUsers = users.filter(u => u.lat && u.lng);
-            if (validUsers.length === 0) return;
-            const group = L.featureGroup(validUsers.map(u => L.marker([u.lat, u.lng])));
-            if (group.getBounds().isValid()) {
-                mapRef.current.fitBounds(group.getBounds(), { padding: [50, 50] });
+    // Fetch route from OpenRouteService or OSRM
+    const fetchRoute = useCallback(async (start, end) => {
+        if (!start || !end || !start.lat || !start.lng || !end.lat || !end.lng) return;
+
+        setIsLoadingRoute(true);
+        try {
+            const apiKey = import.meta.env.VITE_ORS_API_KEY;
+            let url;
+            if (apiKey) {
+                url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${start.lng},${start.lat}&end=${end.lng},${end.lat}&geometry=true&geometry_format=geojson`;
+            } else {
+                url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
             }
+            
+            const response = await axios.get(url);
+            
+            if (response.data && response.data.routes && response.data.routes.length > 0) {
+                const route = response.data.routes[0];
+                const distance = (route.summary?.distance || route.distance) / 1000;
+                setRouteDistance(distance);
+                if (onDistanceUpdate) onDistanceUpdate(distance);
+                
+                let coordinates = [];
+                if (route.geometry) {
+                    if (route.geometry.type === 'LineString') {
+                        coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    } else if (typeof route.geometry === 'string') {
+                        coordinates = decodePolyline(route.geometry);
+                    }
+                }
+                setRouteCoordinates(coordinates);
+            }
+        } catch (error) {
+            console.error('Error fetching route:', error);
+            setRouteCoordinates([[start.lat, start.lng], [end.lat, end.lng]]); // Fallback to straight line
+        } finally {
+            setIsLoadingRoute(false);
         }
-    };
+    }, [onDistanceUpdate]);
 
-    // Reset initial fit when mode changes back to live
     useEffect(() => {
-        if (mode !== 'live') hasInitialFit.current = false;
-    }, [mode]);
+        if (mode === 'nav' && me && selectedDevice) {
+            fetchRoute(
+                { lat: me.lat, lng: me.lng },
+                { lat: selectedDevice.lat, lng: selectedDevice.lng }
+            );
+        } else {
+            setRouteCoordinates([]);
+            setRouteDistance(null);
+        }
+    }, [mode, me, selectedDevice, fetchRoute]);
 
-    // Default center (India)
-    const defaultCenter = [20.5937, 78.9629];
-    const initialCenter = me ? [me.lat, me.lng] : defaultCenter;
+    const handleCenterOnMe = useCallback(() => {
+        if (me?.lat && me?.lng) {
+            setMapCenter([me.lat, me.lng]);
+            setMapZoom(14);
+            setMapBounds(null);
+        }
+    }, [me]);
+
+    const handleFitAll = useCallback(() => {
+        const validUsers = users.filter(u => u.lat && u.lng);
+        if (validUsers.length === 0) return;
+        setMapBounds(validUsers.map(u => [u.lat, u.lng]));
+    }, [users]);
+
+    useEffect(() => {
+        if (mode === 'live') handleFitAll();
+    }, [mode, handleFitAll]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0f172a' }}>
             <MapContainer
-                center={initialCenter}
-                zoom={5}
-                style={{ height: '100%', width: '100%', background: '#0f172a' }}
+                center={mapCenter}
+                zoom={mapZoom}
+                style={{ width: '100%', height: '100%' }}
                 zoomControl={false}
                 ref={mapRef}
             >
-                {/* 
-                    Tile Layer Options:
-                    1. OpenStreetMap (Standard): 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                    2. CartoDB Dark Matter: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                    3. Esri World Imagery (Satellite): 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                    
-                    User asked for "Detailed". Standard OSM is best for street detail.
-                    But to keep it premium, dark mode is nice. 
-                    Let's use a high-contrast OSM style or CartoDB Voyager.
-                    Actually, let's use the Standard OSM because it IS detailed.
-                */}
-                <TileLayer
-                    attribution='&copy; OpenStreetMap contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-
-                <MapController
-                    mode={mode}
-                    users={users}
-                    me={me}
-                    selectedDevice={selectedDevice}
-                    onFitAll={handleFitAll}
-                    hasInitialFit={hasInitialFit}
-                />
+                <MapController center={mapCenter} zoom={mapZoom} bounds={mapBounds} />
+                <TileLayer attribution={DARK_TILE_ATTRIBUTION} url={DARK_TILE_URL} />
 
                 {users.map(u => {
                     if (!u.lat || !u.lng) return null;
@@ -186,63 +253,48 @@ const MapComponent = ({
                     const isSelected = selectedDevice?.mobile === u.mobile;
                     const status = getStatus(u.last_updated);
 
-                    if (isMe) {
-                        return (
-                            <Marker
-                                key="me"
-                                position={[u.lat, u.lng]}
-                                icon={meIcon}
-                            />
-                        );
-                    }
-
                     return (
                         <Marker
                             key={u.mobile}
                             position={[u.lat, u.lng]}
-                            icon={createCustomIcon('truck', status, isSelected)}
-                            eventHandlers={{
-                                click: () => {
-                                    // Normally we'd callback to App to select, but App handles selection via sidebar mostly.
-                                    // We can add an onSelect prop if needed, but for now just visual.
-                                }
-                            }}
-                        >
-                            {/* Optional Popup */}
-                        </Marker>
+                            icon={isMe ? meIcon : createCustomIcon('truck', status, isSelected)}
+                        />
                     );
                 })}
 
-                {mode === 'nav' && me && selectedDevice && (
+                {mode === 'nav' && routeCoordinates.length > 0 && (
                     <Polyline
-                        positions={[[me.lat, me.lng], [selectedDevice.lat, selectedDevice.lng]]}
-                        pathOptions={{ color: '#3b82f6', weight: 4, dashArray: '10, 10', opacity: 0.8 }}
+                        positions={routeCoordinates}
+                        pathOptions={{ color: '#3b82f6', weight: 5, opacity: 0.8 }}
                     />
                 )}
 
-                {mode === 'history' && historyPoints.length > 0 && (
+                {mode === 'history' && historyPoints.length > 1 && (
                     <>
                         <Polyline
                             positions={historyPoints.map(p => [p.lat, p.lng])}
-                            pathOptions={{ color: '#10b981', weight: 4 }}
+                            pathOptions={{ color: '#10b981', weight: 5, opacity: 0.8 }}
                         />
                         <Marker position={[historyPoints[0].lat, historyPoints[0].lng]} icon={createCustomIcon('start', 'active', false)} />
                         <Marker position={[historyPoints[historyPoints.length - 1].lat, historyPoints[historyPoints.length - 1].lng]} icon={createCustomIcon('end', 'active', false)} />
                     </>
                 )}
-
             </MapContainer>
 
+            {routeDistance && mode === 'nav' && (
+                <div style={{
+                    position: 'absolute', top: 20, right: 20, background: 'rgba(15, 23, 42, 0.9)',
+                    padding: '12px 16px', borderRadius: '12px', color: 'white', zIndex: 10
+                }}>
+                    <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>DISTANCE</div>
+                    <div>{formatDistance(routeDistance)}</div>
+                </div>
+            )}
+
             <div className="floating-controls">
-                <button className="fab glass" onClick={handleCenterOnMe}>
-                    <Crosshair size={24} color="var(--primary)" />
-                </button>
-                <button className="fab glass" onClick={handleFitAll}>
-                    <Maximize size={24} color="var(--text-sub)" />
-                </button>
-                <button className="fab glass" onClick={onReset}>
-                    <RotateCcw size={24} color="var(--text-sub)" />
-                </button>
+                <button className="fab glass" onClick={handleCenterOnMe}><Crosshair size={24} color="#3b82f6" /></button>
+                <button className="fab glass" onClick={handleFitAll}><Maximize size={24} color="#94a3b8" /></button>
+                <button className="fab glass" onClick={onReset}><RotateCcw size={24} color="#94a3b8" /></button>
             </div>
         </div>
     );

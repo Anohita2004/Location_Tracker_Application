@@ -8,11 +8,13 @@ A live location tracking application designed for mobile devices. Users can sign
 - **OTP Login**: Secure entry using mobile number and OTP.
 - **Auto-Registration**: Device location and details are registered automatically upon login.
 - **Live Tracking**: Real-time location updates using WebSockets.
-- **Interactive Map**: Google Maps integration with dark mode/premium styling.
+- **Interactive Map**: Leaflet integration with dark mode styling using OpenStreetMap tiles.
+- **Route Tracing**: Accurate route calculation and distance measurement using OpenRouteService API.
+- **Distance Display**: Real-time distance calculation between locations.
 
 ## Prerequisites
 - Node.js installed.
-- Google Maps API Key (for full map functionality).
+- OpenRouteService API Key (optional, for enhanced route tracing - free tier available).
 
 ## Setup & Run
 
@@ -21,10 +23,14 @@ A live location tracking application designed for mobile devices. Users can sign
     npm install
     ```
 
-2.  **Configuration**
-    - Open `src/MapComponent.jsx`.
-    - Find `googleMapsApiKey: ""` and insert your Google Maps API Key.
-    - *Note: Without a key, the map will display in "Development Mode" (darkened with watermark).*
+2.  **Configuration (Optional)**
+    - Create a `.env` file in the root directory.
+    - Add your OpenRouteService API key (optional but recommended):
+      ```
+      VITE_ORS_API_KEY=your_ors_api_key_here
+      ```
+    - Get your free API key from [https://openrouteservice.org/dev/#/signup](https://openrouteservice.org/dev/#/signup)
+    - *Note: The app works without an API key but with limited route requests. A free API key provides 2,000 requests/day.*
 
 3.  **Run the Application**
     You need to run both the Backend (server) and Frontend (client).
