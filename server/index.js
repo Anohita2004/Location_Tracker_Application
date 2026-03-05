@@ -148,14 +148,14 @@ app.get('/api/history', async (req, res) => {
     }
 });
 
-// GET all devices status
+// GET all devices status (SAP/ABAP Friendly)
 app.get('/api/devices', async (req, res) => {
     try {
-        const result = await pool.query('SELECT mobile, lat, lng, last_updated FROM devices');
+        const result = await pool.query('SELECT mobile AS "Mobile_no", lat AS "Latitude", lng AS "Longitude", last_updated AS "Capturedat" FROM devices');
         res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Database error' });
+        res.status(500).json({ success: false, error: 'Database error' });
     }
 });
 
