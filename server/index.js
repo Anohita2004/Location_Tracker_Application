@@ -234,6 +234,52 @@ app.get('/api/update', async (req, res) => {
     }
 });
 
+// SAP/ABAP Direct Sync Endpoint
+// Accepts the specific JSON format from SAP (Mobile_no, Latitude, Longitude, Capturedat)
+app.post('/api/sap-sync', async (req, res) => {
+    let data = req.body;
+    
+    // Handle both single object and array of objects
+    const updates = Array.isArray(data) ? data : [data];
+    const results = [];
+
+    try {
+        for (const item of updates) {
+            // Map SAP fields to our DB fields
+            const mobile = item.Mobile_no || item.mobile;
+            const lat = parseFloat(item.Latitude || item.lat);
+            const lng = parseFloat(item.Longitude || item.lng);
+            const timestamp = item.Capturedat || item.last_updated || new Date();
+
+            if (!mobile || isNaN(lat) || isNaN(lng)) {
+                results.push({ mobile: mobile || 'unknown', success: false, error: 'Missing or invalid data' });
+                continue;
+            }
+
+            const query = `
+                INSERT INTO devices (mobile, lat, lng, last_updated)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (mobile) 
+                DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, last_updated = EXCLUDED.last_updated
+                RETURNING *;
+            `;
+            const result = await pool.query(query, [mobile, lat, lng, timestamp]);
+            const updatedUser = result.rows[0];
+
+            await pool.query('INSERT INTO location_history (mobile, lat, lng, timestamp) VALUES ($1, $2, $3, $4)', [mobile, lat, lng, timestamp]);
+
+            // Broadcast to real-time map
+            io.emit('location-update', updatedUser);
+            results.push({ mobile, success: true });
+        }
+
+        res.json({ success: true, processed: results.length, details: results });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Database error' });
+    }
+});
+
 app.post('/api/update-location', async (req, res) => {
     const { mobile, lat, lng, timestamp } = req.body;
     if (!mobile || !lat || !lng) return res.status(400).json({ error: 'Missing data' });

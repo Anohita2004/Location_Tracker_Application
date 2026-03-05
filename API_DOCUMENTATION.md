@@ -1,46 +1,54 @@
-# API Documentation for ABAP/SAP Integration
+# Professional SAP / ABAP Integration Guide
 
-This document explains how your ABAP backend can communicate with the Location Tracker system to either **Push** information onto the map or **Pull** information into SAP.
+This endpoint is specifically designed to handle direct data synchronization from an SAP/ABAP environment using your existing data structure.
 
 **Base URL:** `https://location-tracker-k3hg.onrender.com`
 
 ---
 
-## 🚀 1. Pushing Data FROM ABAP TO the Live Map
-Use this if you have location data in your ABAP backend and you want it to appear instantly on the web map dashboard.
+## 🚀 Pro Sync: Direct SAP Push
+Instead of manually typing URLs, your ABAP system can send its JSON data directly to our server. We have mapped our system to match your SAP field names perfectly.
 
-- **Method**: `GET` (for simplest integration)
-- **URL Format**: `https://location-tracker-k3hg.onrender.com/api/update?mobile=XXXX&lat=XXXX&lng=XXXX&timestamp=XXXX`
-- **Example Call**: 
-  `https://location-tracker-k3hg.onrender.com/api/update?mobile=9876543210&lat=28.7041&lng=77.1025&timestamp=2024-03-05T16:30:00Z`
+- **Endpoint**: `POST /api/sap-sync`
+- **Method**: `POST`
+- **Request Format**: Application/JSON
 
-**Result**: As soon as this URL is called, the truck icon on the map moves to the new coordinates.
+### 📦 Option A: Send One Truck
+Your ABAP backend can send the exact JSON object you already have:
+
+```json
+{
+  "Mobile_no": "9679686636",
+  "Latitude": "22.5414250",
+  "Longitude": "88.3619910",
+  "Capturedat": "2026-01-08T13:26:13.132Z"
+}
+```
+
+### 📦 Option B: Send Multiple Trucks (Batch)
+If you have 50 trucks updated in SAP, you don't need 50 calls. Just send an array of objects in one single request:
+
+```json
+[
+  { "Mobile_no": "9679686636", "Latitude": "22.5414", "Longitude": "88.3619", "Capturedat": "..." },
+  { "Mobile_no": "9876543210", "Latitude": "28.7041", "Longitude": "77.1025", "Capturedat": "..." }
+]
+```
 
 ---
 
-## 🛰️ 2. Fetching Data FROM the Tracker TO ABAP
-Use this if you want to pull the latest coordinates (sent by mobile phones) into your SAP fields.
+## 🛰️ Data Mapping Reference
+Our server automatically translates your SAP data to our map system:
 
-### A. Get ALL Trucks
-- **Full URL**: `https://location-tracker-k3hg.onrender.com/api/devices`
-- **Response**: Returns a JSON array of all active trucks and their latest coordinates.
-
-### B. Get a SINGLE Truck
-- **Full URL**: `https://location-tracker-k3hg.onrender.com/api/device-status/9876543210`
-- **Response**: Returns the lat, lng, and timestamp for that specific mobile number.
-
----
-
-## 🛠️ Field Reference
-| Field | Type | Description |
+| SAP Field Name | Tracker Field | Note |
 | :--- | :--- | :--- |
-| `mobile` | String | Unique ID of the truck (Mobile Number) |
-| `lat` | Float | Current Latitude coordinate |
-| `lng` | Float | Current Longitude coordinate |
-| `last_updated` | Date String | The exact date and time of the last update |
+| `Mobile_no` | `mobile` | Unique Identifier |
+| `Latitude` | `lat` | Coordinate |
+| `Longitude` | `lng` | Coordinate |
+| `Capturedat` | `timestamp` | ISO String format |
 
 ---
 
-## 🔒 Security Summary
-- **No Login/OTP required** for these backend-to-backend calls.
-- Purely based on the `mobile` number as the unique identifier.
+## 🔒 No-Hassle Authentication
+- **Whitelist**: No OTP or User Login required.
+- **Immediate Effect**: The map dashboard will pulse and move the truck(s) the second your ABAP system sends the data.
