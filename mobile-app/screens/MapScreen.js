@@ -80,9 +80,12 @@ export default function MapScreen({ navigation }) {
         }
     };
 
-    const mapRegion = user && users.find(u => u.mobile === user.mobile) ? {
-        latitude: users.find(u => u.mobile === user.mobile).lat,
-        longitude: users.find(u => u.mobile === user.mobile).lng,
+    const currentUserData = user ? users.find(u => u.mobile === user.mobile) : null;
+    const hasLocation = currentUserData && currentUserData.lat && currentUserData.lng;
+
+    const mapRegion = hasLocation ? {
+        latitude: currentUserData.lat,
+        longitude: currentUserData.lng,
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
     } : {
@@ -95,12 +98,12 @@ export default function MapScreen({ navigation }) {
     return (
         <View style={styles.container}>
             <MapView style={styles.map} initialRegion={mapRegion} showsUserLocation>
-                {users.map((u) => (
+                {users.filter(u => u.lat && u.lng).map((u) => (
                     <Marker
                         key={u.mobile}
                         coordinate={{ latitude: u.lat, longitude: u.lng }}
                         title={u.mobile}
-                        description={new Date(u.last_updated).toLocaleTimeString()}
+                        description={u.last_updated ? new Date(u.last_updated).toLocaleTimeString() : 'Unknown'}
                         pinColor={u.mobile === user?.mobile ? 'green' : 'red'}
                     />
                 ))}

@@ -148,6 +148,40 @@ app.get('/api/history', async (req, res) => {
     }
 });
 
+// GET all devices status
+app.get('/api/devices', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT mobile, lat, lng, last_updated FROM devices');
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// New Endpoint for Manager/ABAP Integration
+// Fetches the latest coordinates and time for a specific mobile number directly
+app.get('/api/device-status/:mobile', async (req, res) => {
+    const { mobile } = req.params;
+
+    try {
+        const query = 'SELECT mobile, lat, lng, last_updated FROM devices WHERE mobile = $1';
+        const result = await pool.query(query, [mobile]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Device not found' });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 app.post('/api/verify-otp', async (req, res) => {
     const { mobile, otp } = req.body;
 
@@ -173,23 +207,26 @@ app.post('/api/verify-otp', async (req, res) => {
 });
 
 app.post('/api/update-location', async (req, res) => {
-    const { mobile, lat, lng } = req.body;
+    const { mobile, lat, lng, timestamp } = req.body;
     if (!mobile || !lat || !lng) return res.status(400).json({ error: 'Missing data' });
+
+    // Use provided timestamp or current server time
+    const finalTimestamp = timestamp ? new Date(timestamp) : new Date();
 
     try {
         // 1. Update latest device location
         const query = `
           INSERT INTO devices (mobile, lat, lng, last_updated)
-          VALUES ($1, $2, $3, NOW())
+          VALUES ($1, $2, $3, $4)
           ON CONFLICT (mobile) 
-          DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, last_updated = NOW()
+          DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, last_updated = EXCLUDED.last_updated
           RETURNING *;
       `;
-        const result = await pool.query(query, [mobile, lat, lng]);
+        const result = await pool.query(query, [mobile, lat, lng, finalTimestamp]);
         const updatedUser = result.rows[0];
 
         // 2. Log to history
-        await pool.query('INSERT INTO location_history (mobile, lat, lng, timestamp) VALUES ($1, $2, $3, NOW())', [mobile, lat, lng]);
+        await pool.query('INSERT INTO location_history (mobile, lat, lng, timestamp) VALUES ($1, $2, $3, $4)', [mobile, lat, lng, finalTimestamp]);
 
         // Broadcast update to all connected clients
         io.emit('location-update', updatedUser);
