@@ -48,8 +48,24 @@ function App() {
     }
   }, []);
 
+  const fetchDevices = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/devices');
+      if (res.data.success) {
+        setUsers(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch devices:', err);
+    }
+  }, []);
+
   useEffect(() => {
-    socket.on('initial-data', setUsers);
+    fetchDevices(); // Initial fetch
+    
+    socket.on('initial-data', (data) => {
+      setUsers(data);
+    });
+
     socket.on('location-update', (updatedUser) => {
       setUsers(prev => {
         const idx = prev.findIndex(u => u.mobile === updatedUser.mobile);
@@ -61,11 +77,12 @@ function App() {
         return [...prev, updatedUser];
       });
     });
+
     return () => {
       socket.off('initial-data');
       socket.off('location-update');
     };
-  }, []);
+  }, [fetchDevices]);
 
   const [isTransmitting, setIsTransmitting] = useState(false);
 
@@ -304,7 +321,10 @@ function App() {
                   <User size={18} color="var(--primary)" />
                   <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{currentUser?.mobile}</span>
                 </div>
-                <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><LogOut size={18} color="var(--text-sub)" /></button>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={fetchDevices} className="fab glass" style={{ width: 32, height: 32 }}><RotateCcw size={14} /></button>
+                  <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><LogOut size={18} color="var(--text-sub)" /></button>
+                </div>
               </div>
 
               <div className="glass" style={{ padding: 16, borderRadius: 12, marginBottom: 24 }}>
