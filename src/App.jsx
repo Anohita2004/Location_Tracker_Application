@@ -61,7 +61,7 @@ function App() {
 
   useEffect(() => {
     fetchDevices(); // Initial fetch
-    
+
     socket.on('initial-data', (data) => {
       setUsers(data);
     });
@@ -147,7 +147,7 @@ function App() {
   const groupedUsers = useMemo(() => {
     const groups = { North: [], South: [], East: [], West: [] };
     users.forEach(u => {
-      if (u.mobile === currentUser?.mobile) return;
+      if (!u.mobile || u.mobile === currentUser?.mobile) return;
       if (u.mobile.startsWith('North')) groups.North.push(u);
       else if (u.mobile.startsWith('South')) groups.South.push(u);
       else if (u.mobile.startsWith('East')) groups.East.push(u);
@@ -404,7 +404,7 @@ function App() {
                       {mode === 'nav' ? 'DISTANCE' : 'REGION'}
                     </div>
                     <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                      {mode === 'nav' && distance !== null 
+                      {mode === 'nav' && distance !== null
                         ? (distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`)
                         : 'Logistics Zone A'}
                     </div>

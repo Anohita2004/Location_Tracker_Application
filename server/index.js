@@ -151,7 +151,7 @@ app.get('/api/history', async (req, res) => {
 // GET all devices status (SAP/ABAP Friendly)
 app.get('/api/devices', async (req, res) => {
     try {
-        const result = await pool.query('SELECT mobile AS "Mobile_no", lat AS "Latitude", lng AS "Longitude", last_updated AS "Capturedat" FROM devices');
+        const result = await pool.query('SELECT mobile, lat, lng, last_updated, mobile AS "Mobile_no", lat AS "Latitude", lng AS "Longitude", last_updated AS "Capturedat" FROM devices');
         res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
@@ -238,7 +238,7 @@ app.get('/api/update', async (req, res) => {
 // Accepts the specific JSON format from SAP (Mobile_no, Latitude, Longitude, Capturedat)
 app.post('/api/sap-sync', async (req, res) => {
     let data = req.body;
-    
+
     // Handle both single object and array of objects
     const updates = Array.isArray(data) ? data : [data];
     const results = [];
