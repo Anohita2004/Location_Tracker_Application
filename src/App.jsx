@@ -21,7 +21,11 @@ function App() {
 
   // UI State
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedDevice, setSelectedDevice] = useState(null);
+  const [selectedMobile, setSelectedMobile] = useState(null);
+  const selectedDevice = useMemo(() =>
+    users.find(u => u.mobile === selectedMobile),
+    [users, selectedMobile]
+  );
   const [isSheetExpanded, setSheetExpanded] = useState(false);
   const [mode, setMode] = useState('live');
   const [selectedDate, setSelectedDate] = useState('');
@@ -191,7 +195,7 @@ function App() {
   };
 
   const selectTruck = (truck) => {
-    setSelectedDevice(truck);
+    setSelectedMobile(truck.mobile);
     setSidebarOpen(false);
     setSheetExpanded(false);
     setMode('live');
@@ -221,7 +225,7 @@ function App() {
 
   const resetView = () => {
     setMode('live');
-    setSelectedDevice(null);
+    setSelectedMobile(null);
     setHistoryPoints([]);
     setSelectedDate('');
     setDistance(null);
@@ -395,19 +399,32 @@ function App() {
                   <div className="bottom-sheet glass expanded" style={{ background: 'white', borderRadius: '32px 32px 0 0', position: 'absolute', bottom: 80, height: 'auto', padding: '16px 24px 32px' }}>
                     <div className="sheet-handle"></div>
                     <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-                      <div style={{ width: 80, height: 80, background: '#f1f5f9', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>🚛</div>
+                      <div style={{ width: 80, height: 80, background: 'var(--primary-glow)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
+                        <Truck size={40} color="var(--primary)" />
+                      </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>{selectedDevice.mobile}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>Little Stacy Park, Austin, TX</div>
-                        <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
-                          <div style={{ background: 'var(--primary-glow)', padding: '4px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary)' }}>🕒 10:00am - 12:30pm</div>
-                          <div style={{ background: '#fef9c3', padding: '4px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, color: '#a16207' }}>📍 12.5 mi</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>{selectedDevice.mobile}</div>
+                          <div className={`status-chip ${getStatus(selectedDevice.last_updated) === 'active' ? 'chip-active' : 'chip-offline'}`}>
+                            {getStatus(selectedDevice.last_updated)}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)', fontWeight: 600, marginTop: 4 }}>
+                          SAP DELIVERY: {selectedDevice.mobile.split('-').pop().padStart(6, '0')}
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                          <div style={{ background: '#f8fafc', padding: '6px 12px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', border: '1px solid var(--border-subtle)' }}>
+                            � {selectedDevice.lat.toFixed(4)}, {selectedDevice.lng.toFixed(4)}
+                          </div>
+                          <div style={{ background: '#f8fafc', padding: '6px 12px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', border: '1px solid var(--border-subtle)' }}>
+                            � {new Date(selectedDevice.last_updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
                         </div>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                      <button className="btn-primary" style={{ flex: 1 }} onClick={enterNavMode}>Start Route</button>
-                      <button className="btn-primary" style={{ flex: 1, background: '#f1f5f9', color: 'var(--text-main)', boxShadow: 'none' }} onClick={() => setSelectedDevice(null)}>Close</button>
+                      <button className="btn-primary" style={{ flex: 1 }} onClick={enterNavMode}>Track Route</button>
+                      <button className="btn-primary" style={{ flex: 1, background: '#f8fafc', color: 'var(--text-main)', boxShadow: 'none', border: '1px solid var(--border-subtle)' }} onClick={() => setSelectedMobile(null)}>Close</button>
                     </div>
                   </div>
                 )}
