@@ -349,6 +349,52 @@ body {
   text-align: center;
 }
 
+/* Analytical KPI Row */
+.kpi-row {
+  position: absolute;
+  top: 24px;
+  left: 100px;
+  right: 250px;
+  display: flex;
+  gap: 16px;
+  z-index: 1050;
+  pointer-events: none;
+}
+
+.kpi-card {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  pointer-events: auto;
+  min-width: 140px;
+}
+
+.kpi-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--text-sub);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .kpi-row {
+    display: none;
+    /* Hide top KPIs on mobile to avoid crowding */
+  }
+}
+
 /* Map Screen UI */
 .map-viewport {
   flex: 1;

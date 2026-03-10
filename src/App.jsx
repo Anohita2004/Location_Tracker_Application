@@ -280,9 +280,29 @@ function App() {
             </div>
           )}
 
-          <button className="fab glass" style={{ position: 'absolute', top: 20, left: 20, zIndex: 1100 }} onClick={() => setSidebarOpen(true)}>
-            <Menu size={24} color="var(--primary)" />
+          <button className="fab glass" style={{ position: 'absolute', top: 24, left: 24, zIndex: 1100 }} onClick={() => setSidebarOpen(true)}>
+            <Menu size={24} color="var(--primary-bright)" />
           </button>
+
+          {/* Fiori-inspired KPI Row */}
+          <div className="kpi-row animate-fade">
+            <div className="kpi-card glass">
+              <span className="kpi-label">TOTAL ASSETS</span>
+              <span className="kpi-value">{users.length}</span>
+            </div>
+            <div className="kpi-card glass">
+              <span className="kpi-label">ACTIVE</span>
+              <span className="kpi-value" style={{ color: 'var(--success)' }}>
+                {users.filter(u => getStatus(u.last_updated) === 'active').length}
+              </span>
+            </div>
+            <div className="kpi-card glass">
+              <span className="kpi-label">CRITICAL (OFFLINE)</span>
+              <span className="kpi-value" style={{ color: 'var(--danger)' }}>
+                {users.filter(u => getStatus(u.last_updated) === 'offline').length}
+              </span>
+            </div>
+          </div>
 
           {/* Live Broadcasting Indicator */}
           <div className="glass broadcasting-indicator" style={{
@@ -360,9 +380,14 @@ function App() {
                       >
                         <Truck size={22} color={status === 'offline' ? 'var(--text-sub)' : 'var(--primary-bright)'} />
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{u.mobile}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)' }}>
-                            {status === 'active' ? '🟢 Active' : '🔴 Offline'}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, letterSpacing: '-0.02em' }}>{u.mobile}</div>
+                            <div style={{ fontSize: '0.6rem', color: 'var(--primary-bright)', fontWeight: 800, background: 'rgba(99, 102, 241, 0.1)', padding: '2px 6px', borderRadius: 4 }}>
+                              DEL: {u.mobile.split('-').pop().padStart(6, '0')}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 500 }}>
+                            {status === 'active' ? '🟢 Active Logistics' : '🔴 Tracking Paused'}
                           </div>
                         </div>
                       </div>
@@ -389,6 +414,9 @@ function App() {
               <div className="sheet-header">
                 <div>
                   <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{selectedDevice.mobile}</h3>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--primary-bright)', fontWeight: 800, marginTop: -4, marginBottom: 4 }}>
+                    SAP DELIVERY: {selectedDevice.mobile.split('-').pop().padStart(6, '0')}
+                  </div>
                   <span className={`badge ${getStatus(selectedDevice.last_updated) === 'active' ? 'badge-active' : 'badge-offline'}`}>
                     {getStatus(selectedDevice.last_updated)}
                   </span>
