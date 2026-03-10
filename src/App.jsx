@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
-import { Menu, X, Truck, User, Calendar, LogOut, Navigation, History, PlayCircle, RotateCcw } from 'lucide-react';
+import { Menu, X, Truck, User, Calendar, LogOut, Navigation, History, PlayCircle, RotateCcw, Home, LayoutList, Bell, Search, Star, HelpCircle, Settings, ChevronRight } from 'lucide-react';
 import MapComponent from './MapComponent';
 
 import { Geolocation } from '@capacitor/geolocation';
@@ -27,6 +27,8 @@ function App() {
   const [selectedDate, setSelectedDate] = useState('');
   const [historyPoints, setHistoryPoints] = useState([]);
   const [distance, setDistance] = useState(null);
+  const [activeTab, setActiveTab] = useState('home'); // home, fleet, map, tracking
+  const [activeFleetSubTab, setActiveFleetSubTab] = useState('vehicles'); // drivers, vehicles
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -235,18 +237,19 @@ function App() {
     <div className="app-container">
       {step === 'login' || step === 'otp' ? (
         <div className="login-screen">
-          <div className="login-card glass animate-fade">
+          <div className="login-card glass animate-fade" style={{ background: 'white' }}>
             <div className="login-header">
-              <div className="brand-icon">🚛</div>
-              <h1>FleetOps</h1>
-              <p>Real-time Asset Intelligence</p>
+              <div className="brand-icon" style={{ filter: 'none' }}>🚛</div>
+              <h1 style={{ background: 'none', WebkitTextFillColor: 'var(--text-main)', color: 'var(--text-main)' }}>FleetOps</h1>
+              <p style={{ color: 'var(--text-sub)' }}>Real-time Asset Intelligence</p>
             </div>
 
             <form onSubmit={step === 'login' ? handleLogin : handleVerify} style={{ marginTop: 32 }}>
               <div className="input-group">
-                <label className="input-label">{step === 'login' ? "Mobile Number" : "Verification Code"}</label>
+                <label className="input-label" style={{ color: 'var(--primary)' }}>{step === 'login' ? "Mobile Number" : "Verification Code"}</label>
                 <input
                   className="modern-input"
+                  style={{ background: '#f8fafc', color: 'var(--text-main)' }}
                   value={step === 'login' ? mobile : otp}
                   onChange={e => step === 'login' ? setMobile(e.target.value) : setOtp(e.target.value)}
                   placeholder={step === 'login' ? "00000 00000" : "Enter 4-digit OTP"}
@@ -264,216 +267,213 @@ function App() {
                 {step === 'login' ? "Get Started" : "Verify & Continue"}
               </button>
             </form>
-
-            <div className="login-footer">
-              <p>Secure Enterprise Tracking System</p>
-            </div>
           </div>
         </div>
       ) : (
-        <div className="map-viewport">
-          {mode !== 'live' && (
-            <div className={`mode-banner glass animate-fade ${mode}`}>
-              {mode === 'nav' ? <Navigation size={18} /> : <Calendar size={18} />}
-              <span>{mode === 'nav' ? `Routing to ${selectedDevice?.mobile}` : `History: ${selectedDate}`}</span>
-              <X size={18} style={{ marginLeft: 10, cursor: 'pointer', pointerEvents: 'auto' }} onClick={resetView} />
-            </div>
-          )}
-
-          <button className="fab glass" style={{ position: 'absolute', top: 24, left: 24, zIndex: 1100 }} onClick={() => setSidebarOpen(true)}>
-            <Menu size={24} color="var(--primary-bright)" />
-          </button>
-
-          {/* Fiori-inspired KPI Row */}
-          <div className="kpi-row animate-fade">
-            <div className="kpi-card glass">
-              <span className="kpi-label">TOTAL ASSETS</span>
-              <span className="kpi-value">{users.length}</span>
-            </div>
-            <div className="kpi-card glass">
-              <span className="kpi-label">ACTIVE</span>
-              <span className="kpi-value" style={{ color: 'var(--success)' }}>
-                {users.filter(u => getStatus(u.last_updated) === 'active').length}
-              </span>
-            </div>
-            <div className="kpi-card glass">
-              <span className="kpi-label">CRITICAL (OFFLINE)</span>
-              <span className="kpi-value" style={{ color: 'var(--danger)' }}>
-                {users.filter(u => getStatus(u.last_updated) === 'offline').length}
-              </span>
-            </div>
-          </div>
-
-          {/* Live Broadcasting Indicator */}
-          <div className="glass broadcasting-indicator" style={{
-            position: 'absolute',
-            top: 24,
-            right: 24,
-            zIndex: 1100,
-            padding: '10px 16px',
-            borderRadius: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <div className={`status-dot ${isTransmitting ? 'transmitting' : 'ready'}`}></div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-sub)', letterSpacing: '0.1em' }}>GPS STATUS</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'white' }}>
-                {isTransmitting ? 'LIVE STREAM' : 'SIGNAL READY'}
-              </span>
-            </div>
-          </div>
-
-          <div className={`sidebar-overlay ${isSidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)}></div>
-          <div className={`primary-sidebar glass ${isSidebarOpen ? 'open' : ''}`}>
-            <div className="sidebar-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="pulse-me" style={{ width: 10, height: 10 }}></div>
-                <span style={{ fontWeight: 700 }}>FLEET OPS</span>
-              </div>
-              <button className="fab" style={{ width: 32, height: 32, background: 'none', border: 'none' }} onClick={() => setSidebarOpen(false)}><X size={20} /></button>
-            </div>
-
-            <div className="sidebar-content">
-              <div style={{ marginBottom: 30, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <User size={18} color="var(--primary)" />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{currentUser?.mobile}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={fetchDevices} className="fab glass" style={{ width: 32, height: 32 }}><RotateCcw size={14} /></button>
-                  <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><LogOut size={18} color="var(--text-sub)" /></button>
-                </div>
-              </div>
-
-              <div className="glass" style={{ padding: 16, borderRadius: 12, marginBottom: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, color: 'var(--primary)', fontWeight: 700, fontSize: '0.75rem', letterSpacing: '1px' }}>
-                  <History size={16} /> MY HISTORY
-                </div>
-                <input
-                  type="date"
-                  className="modern-input"
-                  style={{ padding: '10px', fontSize: '0.85rem' }}
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    fetchHistory(e.target.value, currentUser.mobile);
-                  }}
-                />
-              </div>
-
-              <div className="category-label">FLEET REGIONS</div>
-              {Object.entries(groupedUsers).map(([region, regionUsers]) => (
-                <div key={region} className="sidebar-category">
-                  <div className="region-header">
-                    <span className="region-name">{region}</span>
-                    <span className="region-count">{regionUsers.length}</span>
+        <div className="app-container">
+          <div className="view-container animate-fade">
+            {activeTab === 'home' && (
+              <div className="home-view">
+                <div className="user-header">
+                  <div className="profile-pill">
+                    <div className="avatar">AC</div>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>Welcome!</div>
+                      <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Alfredo Curtis</div>
+                    </div>
                   </div>
-                  {regionUsers.map(u => {
+                  <div className="fab" style={{ background: '#f1f5f9', width: 44, height: 44 }}><Bell size={20} /></div>
+                </div>
+
+                <div className="card-elevated" style={{ background: 'var(--primary)', color: 'white', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.1 }}><Truck size={120} /></div>
+                  <div style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: 4 }}>Fleet Performance</div>
+                  <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>Live tracking is active</div>
+                  <div className="kpi-grid" style={{ marginTop: 20 }}>
+                    <div className="kpi-item">
+                      <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>{users.length}</div>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 600, opacity: 0.7 }}>TOTAL TRUCKS</div>
+                    </div>
+                    <div className="kpi-item">
+                      <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>{users.filter(u => getStatus(u.last_updated) === 'active').length}</div>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 600, opacity: 0.7 }}>ON BROADCAST</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card-elevated">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ fontWeight: 700 }}>Fleet Activity</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>See all</div>
+                  </div>
+                  <div className="chart-area">
+                    <svg className="wave-svg" viewBox="0 0 100 30" preserveAspectRatio="none">
+                      <path d="M0 25 C 20 20, 40 28, 60 22 S 80 15, 100 25 V 30 H 0 Z" />
+                      <path d="M0 25 C 20 20, 40 28, 60 22 S 80 15, 100 25" fill="none" />
+                    </svg>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
+                      <span key={day} style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 600 }}>{day}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="card-elevated">
+                  <div style={{ fontWeight: 700, marginBottom: 16 }}>Critical Deadlines</div>
+                  {[
+                    { title: 'Oil Change', sub: 'Due Jan 15, 2024', icon: '🔧', color: 'var(--danger)' },
+                    { title: 'Filter Change', sub: 'Due Jan 16, 2024', icon: '🛡️', color: 'var(--primary)' }
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12, padding: 12, background: '#f8fafc', borderRadius: 12 }}>
+                      <div style={{ fontSize: '1.2rem' }}>{item.icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{item.title}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{item.sub}</div>
+                      </div>
+                      <ChevronRight size={18} color="var(--text-sub)" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'fleet' && (
+              <div className="fleet-view">
+                <div className="list-report-header">
+                  <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Fleet</h2>
+                  <div className="search-bar">
+                    <Search size={18} color="var(--text-sub)" />
+                    <input style={{ border: 'none', outline: 'none', flex: 1, fontSize: '0.9rem' }} placeholder="Search vehicles or drivers..." />
+                  </div>
+                </div>
+
+                <div className="tabs-row">
+                  <div className={`tab-btn ${activeFleetSubTab === 'drivers' ? 'active' : ''}`} onClick={() => setActiveFleetSubTab('drivers')}>Drivers</div>
+                  <div className={`tab-btn ${activeFleetSubTab === 'vehicles' ? 'active' : ''}`} onClick={() => setActiveFleetSubTab('vehicles')}>Vehicles</div>
+                </div>
+
+                <div className="fleet-list">
+                  {users.map(u => {
                     const status = getStatus(u.last_updated);
+                    const delId = u.mobile.split('-').pop();
                     return (
-                      <div
-                        key={u.mobile}
-                        className={`device-card glass ${selectedDevice?.mobile === u.mobile ? 'selected' : ''}`}
-                        onClick={() => selectTruck(u)}
-                      >
-                        <Truck size={22} color={status === 'offline' ? 'var(--text-sub)' : 'var(--primary-bright)'} />
+                      <div key={u.mobile} className="driver-item" onClick={() => { selectTruck(u); setActiveTab('map'); }}>
+                        <div className="avatar" style={{ background: status === 'active' ? 'var(--primary-glow)' : '#f1f5f9' }}>
+                          {u.mobile.charAt(0)}
+                        </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                            <div style={{ fontSize: '0.95rem', fontWeight: 700, letterSpacing: '-0.02em' }}>{u.mobile}</div>
-                            <div style={{ fontSize: '0.6rem', color: 'var(--primary-bright)', fontWeight: 800, background: 'rgba(99, 102, 241, 0.1)', padding: '2px 6px', borderRadius: 4 }}>
-                              DEL: {u.mobile.split('-').pop().padStart(6, '0')}
-                            </div>
-                          </div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 500 }}>
-                            {status === 'active' ? '🟢 Active Logistics' : '🔴 Tracking Paused'}
+                          <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{u.mobile}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Tacoma, WA</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="rating-badge"><Star size={10} fill="currentColor" /> 4.9</div>
+                          <div className={`status-chip ${status === 'active' ? 'chip-active' : 'chip-offline'}`} style={{ marginTop: 4 }}>
+                            {status === 'active' ? 'IN LINE' : 'IDLE'}
                           </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+
+            {activeTab === 'map' && (
+              <div className="map-view" style={{ height: '100%', position: 'absolute', inset: 0, padding: 0 }}>
+                <MapComponent
+                  users={users}
+                  currentUserMobile={currentUser?.mobile}
+                  selectedDevice={selectedDevice}
+                  historyPoints={historyPoints}
+                  mode={mode}
+                  onReset={resetView}
+                  onDistanceUpdate={handleDistanceUpdate}
+                />
+
+                {selectedDevice && (
+                  <div className="bottom-sheet glass expanded" style={{ background: 'white', borderRadius: '32px 32px 0 0', position: 'absolute', bottom: 80, height: 'auto', padding: '16px 24px 32px' }}>
+                    <div className="sheet-handle"></div>
+                    <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+                      <div style={{ width: 80, height: 80, background: '#f1f5f9', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>🚛</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>{selectedDevice.mobile}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>Little Stacy Park, Austin, TX</div>
+                        <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+                          <div style={{ background: 'var(--primary-glow)', padding: '4px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary)' }}>🕒 10:00am - 12:30pm</div>
+                          <div style={{ background: '#fef9c3', padding: '4px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, color: '#a16207' }}>📍 12.5 mi</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                      <button className="btn-primary" style={{ flex: 1 }} onClick={enterNavMode}>Start Route</button>
+                      <button className="btn-primary" style={{ flex: 1, background: '#f1f5f9', color: 'var(--text-main)', boxShadow: 'none' }} onClick={() => setSelectedDevice(null)}>Close</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'tracking' && (
+              <div className="tracking-view">
+                <div className="user-header">
+                  <h2 style={{ fontWeight: 800 }}>Spending</h2>
+                </div>
+                {/* Spend Analysis Chart inspired by mockup */}
+                <div className="card-elevated" style={{ padding: 32 }}>
+                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)', fontWeight: 600 }}>SEPTEMBER TOTAL</div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>$1,234</div>
+                  </div>
+                  <div className="chart-area" style={{ height: 200 }}>
+                    <svg className="wave-svg" viewBox="0 0 100 30" preserveAspectRatio="none">
+                      <path d="M0 25 C 20 10, 40 28, 60 15 S 80 5, 100 20 V 30 H 0 Z" />
+                      <line x1="60" y1="0" x2="60" y2="30" stroke="var(--primary)" strokeDasharray="2" opacity="0.3" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="card-elevated">
+                  <div style={{ fontWeight: 700, marginBottom: 16 }}>Invoices List</div>
+                  {['Reliance', 'Shell', 'Ford Motors'].map((name, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <div style={{ width: 40, height: 40, background: '#f1f5f9', borderRadius: 10 }}></div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{name}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)' }}>LKW {3800 + idx}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 700, color: 'var(--danger)' }}>-$110.00</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          <MapComponent
-            users={users}
-            currentUserMobile={currentUser?.mobile}
-            selectedDevice={selectedDevice}
-            historyPoints={historyPoints}
-            mode={mode}
-            onReset={resetView}
-            onDistanceUpdate={handleDistanceUpdate}
-          />
-
-          {selectedDevice && mode !== 'history' && (
-            <div className={`bottom-sheet glass ${isSheetExpanded ? 'expanded' : 'visible'}`}>
-              <div className="sheet-handle" onClick={() => setSheetExpanded(!isSheetExpanded)}></div>
-              <div className="sheet-header">
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{selectedDevice.mobile}</h3>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--primary-bright)', fontWeight: 800, marginTop: -4, marginBottom: 4 }}>
-                    SAP DELIVERY: {selectedDevice.mobile.split('-').pop().padStart(6, '0')}
-                  </div>
-                  <span className={`badge ${getStatus(selectedDevice.last_updated) === 'active' ? 'badge-active' : 'badge-offline'}`}>
-                    {getStatus(selectedDevice.last_updated)}
-                  </span>
-                </div>
-                <button className="fab glass" style={{ width: 36, height: 36 }} onClick={() => setSelectedDevice(null)}><X size={20} /></button>
-              </div>
-
-              <div className="sheet-content">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-                  <div className="glass" style={{ padding: 12, borderRadius: 12 }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 600, marginBottom: 4 }}>LAST SEEN</div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{new Date(selectedDevice.last_updated).toLocaleTimeString()}</div>
-                  </div>
-                  <div className="glass" style={{ padding: 12, borderRadius: 12 }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 600, marginBottom: 4 }}>
-                      {mode === 'nav' ? 'DISTANCE' : 'REGION'}
-                    </div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                      {mode === 'nav' && distance !== null
-                        ? (distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`)
-                        : 'Logistics Zone A'}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <button className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={enterNavMode}>
-                    <Navigation size={18} /> Navigate
-                  </button>
-                  <div style={{ flex: 1, position: 'relative' }}>
-                    <input
-                      type="date"
-                      className="modern-input"
-                      style={{ padding: '10px' }}
-                      onChange={(e) => {
-                        setSelectedDate(e.target.value);
-                        fetchHistory(e.target.value, selectedDevice.mobile);
-                      }}
-                    />
-                    {!selectedDate && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--text-sub)', fontSize: '0.85rem' }}><History size={16} /> History</div>}
-                  </div>
-                </div>
-              </div>
+          <div className="bottom-nav">
+            <div className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+              <Home size={24} />
+              <span>Home</span>
             </div>
-          )}
-
-          {mode === 'history' && (
-            <div className="timeline-container glass animate-fade">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer' }}><PlayCircle size={36} color="var(--primary)" /></button>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-sub)', marginBottom: 4 }}>MOVEMENT TIMELINE</div>
-                  <input type="range" className="custom-slider" min="0" max="100" defaultValue="0" />
-                </div>
-              </div>
+            <div className={`nav-item ${activeTab === 'fleet' ? 'active' : ''}`} onClick={() => setActiveTab('fleet')}>
+              <Truck size={24} />
+              <span>Fleet</span>
             </div>
-          )}
+            <div className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
+              <Navigation size={24} />
+              <span>Map</span>
+            </div>
+            <div className={`nav-item ${activeTab === 'tracking' ? 'active' : ''}`} onClick={() => setActiveTab('tracking')}>
+              <LayoutList size={24} />
+              <span>Spendings</span>
+            </div>
+            <div className="nav-item">
+              <User size={24} />
+              <span>Profile</span>
+            </div>
+          </div>
         </div>
       )}
     </div>
