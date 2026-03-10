@@ -19,30 +19,31 @@ const DARK_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/cop
 
 // Define custom icons using L.divIcon
 const createCustomIcon = (type, status, isSelected) => {
-    const color = status === 'active' ? '#10b981' : '#64748b';
-    const borderColor = isSelected ? '#3b82f6' : 'white';
-    const scale = isSelected ? 40 : 32;
-    const border = isSelected ? 3 : 2;
+    const color = status === 'active' ? '#10b981' : '#94a3b8';
+    const glow = status === 'active' ? '0 0 15px rgba(16, 185, 129, 0.4)' : 'none';
+    const borderColor = isSelected ? '#4f46e5' : 'rgba(255,255,255,0.8)';
+    const scale = isSelected ? 44 : 36;
     const zIndex = isSelected ? 1000 : 1;
 
-    // Pulse effect for active markers
-    const pulseClass = status === 'active' ? 'marker-pulse' : '';
-
     return L.divIcon({
-        className: `custom-marker ${pulseClass}`,
+        className: `custom-marker ${status === 'active' ? 'marker-pulse' : ''}`,
         html: `
             <div style="
                 width: ${scale}px;
                 height: ${scale}px;
-                background-color: ${color};
-                border: ${border}px solid ${borderColor};
-                border-radius: 50%;
+                background: ${color};
+                border: 2px solid ${borderColor};
+                border-radius: 12px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                box-shadow: ${glow}, 0 4px 12px rgba(0,0,0,0.4);
+                transform: rotate(45deg);
+                transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             ">
-                <span style="font-size: ${scale / 2}px;">${type === 'me' ? '🔵' : '🚛'}</span>
+                <div style="transform: rotate(-45deg); font-size: ${scale / 1.8}px; display: flex;">
+                    ${type === 'me' ? '👤' : '🚛'}
+                </div>
             </div>
         `,
         iconSize: [scale, scale],
@@ -56,16 +57,16 @@ const meIcon = L.divIcon({
     className: 'custom-marker me-marker',
     html: `
         <div style="
-            width: 24px;
-            height: 24px;
-            background-color: #3b82f6;
+            width: 28px;
+            height: 28px;
+            background: #4f46e5;
             border: 3px solid white;
             border-radius: 50%;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.3), 0 4px 10px rgba(0,0,0,0.3);
         "></div>
     `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12]
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
 });
 
 // Calculate distance using Haversine formula
@@ -73,7 +74,7 @@ const calculateDistance = (lat1, lng1, lat2, lng2) => {
     const R = 6371; // km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = 
+    const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLng / 2) * Math.sin(dLng / 2);
@@ -89,7 +90,7 @@ const formatDistance = (km) => {
 // Component to handle map view updates
 function MapController({ center, zoom, bounds }) {
     const map = useMap();
-    
+
     useEffect(() => {
         if (center && zoom && !bounds) {
             map.setView(center, zoom);
@@ -178,15 +179,15 @@ const MapComponent = ({
             } else {
                 url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
             }
-            
+
             const response = await axios.get(url);
-            
+
             if (response.data && response.data.routes && response.data.routes.length > 0) {
                 const route = response.data.routes[0];
                 const distance = (route.summary?.distance || route.distance) / 1000;
                 setRouteDistance(distance);
                 if (onDistanceUpdate) onDistanceUpdate(distance);
-                
+
                 let coordinates = [];
                 if (route.geometry) {
                     if (route.geometry.type === 'LineString') {

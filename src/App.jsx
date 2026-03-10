@@ -236,33 +236,37 @@ function App() {
       {step === 'login' || step === 'otp' ? (
         <div className="login-screen">
           <div className="login-card glass animate-fade">
-            <div style={{ fontSize: '3rem', marginBottom: 10 }}>🚛</div>
-            <h1>FleetOps</h1>
-            <p className="input-label" style={{ textAlign: 'center' }}>Real-time Asset Intelligence</p>
+            <div className="login-header">
+              <div className="brand-icon">🚛</div>
+              <h1>FleetOps</h1>
+              <p>Real-time Asset Intelligence</p>
+            </div>
 
-            <form onSubmit={step === 'login' ? handleLogin : handleVerify} style={{ marginTop: 40 }}>
+            <form onSubmit={step === 'login' ? handleLogin : handleVerify} style={{ marginTop: 32 }}>
               <div className="input-group">
-                <label className="input-label">{step === 'login' ? "MOBILE" : "OTP"}</label>
+                <label className="input-label">{step === 'login' ? "Mobile Number" : "Verification Code"}</label>
                 <input
                   className="modern-input"
                   value={step === 'login' ? mobile : otp}
                   onChange={e => step === 'login' ? setMobile(e.target.value) : setOtp(e.target.value)}
-                  placeholder={step === 'login' ? "Mobile Number" : "1234"}
+                  placeholder={step === 'login' ? "00000 00000" : "Enter 4-digit OTP"}
                   autoFocus={step === 'otp'}
+                  type={step === 'login' ? "tel" : "text"}
                 />
-                {step === 'otp' && <small style={{ display: 'block', marginTop: 10, color: 'var(--text-sub)' }}>Test Code: <strong>1234</strong></small>}
+                {step === 'otp' && (
+                  <div className="otp-hint">
+                    <span>Test Code: <strong>1234</strong></span>
+                  </div>
+                )}
               </div>
-              {error && <p style={{ color: 'var(--danger)', fontSize: '0.8rem', marginBottom: 20 }}>{error}</p>}
+              {error && <div className="error-message animate-fade">{error}</div>}
               <button className="btn-primary" type="submit">
-                {step === 'login' ? "Get Started" : "Verify"}
+                {step === 'login' ? "Get Started" : "Verify & Continue"}
               </button>
             </form>
 
-            {/* Debug Info */}
-            <div style={{ marginTop: 20, padding: 10, background: 'rgba(0,0,0,0.3)', borderRadius: 8, fontSize: '0.7rem', color: '#94a3b8', textAlign: 'left' }}>
-              <p><strong>Debug:</strong></p>
-              <p>Target Server: {axios.defaults.baseURL || '(empty)'}</p>
-              {error && <p style={{ color: '#ef4444', marginTop: 4 }}>Error: {error}</p>}
+            <div className="login-footer">
+              <p>Secure Enterprise Tracking System</p>
             </div>
           </div>
         </div>
@@ -281,28 +285,24 @@ function App() {
           </button>
 
           {/* Live Broadcasting Indicator */}
-          <div className="glass" style={{
+          <div className="glass broadcasting-indicator" style={{
             position: 'absolute',
-            top: 20,
-            right: 20,
+            top: 24,
+            right: 24,
             zIndex: 1100,
-            padding: '8px 12px',
-            borderRadius: 30,
+            padding: '10px 16px',
+            borderRadius: 16,
             display: 'flex',
             alignItems: 'center',
-            gap: 8
+            gap: 12
           }}>
-            <div style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: isTransmitting ? '#10b981' : '#64748b',
-              boxShadow: isTransmitting ? '0 0 10px #10b981' : 'none',
-              transition: 'all 0.2s'
-            }}></div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'white' }}>
-              {isTransmitting ? 'BROADCASTING' : 'GPS READY'}
-            </span>
+            <div className={`status-dot ${isTransmitting ? 'transmitting' : 'ready'}`}></div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-sub)', letterSpacing: '0.1em' }}>GPS STATUS</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'white' }}>
+                {isTransmitting ? 'LIVE STREAM' : 'SIGNAL READY'}
+              </span>
+            </div>
           </div>
 
           <div className={`sidebar-overlay ${isSidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)}></div>
@@ -346,7 +346,10 @@ function App() {
               <div className="category-label">FLEET REGIONS</div>
               {Object.entries(groupedUsers).map(([region, regionUsers]) => (
                 <div key={region} className="sidebar-category">
-                  <div className="category-label">{region} ({regionUsers.length})</div>
+                  <div className="region-header">
+                    <span className="region-name">{region}</span>
+                    <span className="region-count">{regionUsers.length}</span>
+                  </div>
                   {regionUsers.map(u => {
                     const status = getStatus(u.last_updated);
                     return (
@@ -355,7 +358,7 @@ function App() {
                         className={`device-card glass ${selectedDevice?.mobile === u.mobile ? 'selected' : ''}`}
                         onClick={() => selectTruck(u)}
                       >
-                        <Truck size={20} color={status === 'offline' ? 'var(--text-sub)' : 'var(--primary)'} />
+                        <Truck size={22} color={status === 'offline' ? 'var(--text-sub)' : 'var(--primary-bright)'} />
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{u.mobile}</div>
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)' }}>
