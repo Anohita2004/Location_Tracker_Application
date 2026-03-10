@@ -13,16 +13,14 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Dark theme tile layer
-const DARK_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const DARK_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+// Light theme tile layer (Clean & Minimal)
+const LIGHT_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 // Define custom icons using L.divIcon
 const createCustomIcon = (type, status, isSelected) => {
-    const color = status === 'active' ? '#10b981' : '#94a3b8';
-    const glow = status === 'active' ? '0 0 15px rgba(16, 185, 129, 0.4)' : 'none';
-    const borderColor = isSelected ? '#4f46e5' : 'rgba(255,255,255,0.8)';
-    const scale = isSelected ? 44 : 36;
+    const color = status === 'active' ? 'var(--primary)' : 'var(--text-sub)';
+    const scale = isSelected ? 34 : 26;
     const zIndex = isSelected ? 1000 : 1;
 
     return L.divIcon({
@@ -31,24 +29,24 @@ const createCustomIcon = (type, status, isSelected) => {
             <div style="
                 width: ${scale}px;
                 height: ${scale}px;
-                background: ${color};
-                border: 2px solid ${borderColor};
-                border-radius: 12px;
+                background: ${isSelected ? 'var(--primary)' : 'white'};
+                border: 2px solid ${isSelected ? 'white' : color};
+                border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: ${glow}, 0 4px 12px rgba(0,0,0,0.4);
-                transform: rotate(45deg);
-                transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             ">
-                <div style="transform: rotate(-45deg); font-size: ${scale / 1.8}px; display: flex;">
-                    ${type === 'me' ? '👤' : '🚛'}
+                <div style="font-size: ${scale / 1.6}px; display: flex;">
+                    ${type === 'me' ? '👤' : (isSelected ? '🚛' : '🚚')}
                 </div>
+                ${isSelected ? `<div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--primary);"></div>` : ''}
             </div>
         `,
         iconSize: [scale, scale],
-        iconAnchor: [scale / 2, scale / 2],
-        popupAnchor: [0, -scale / 2],
+        iconAnchor: [scale / 2, isSelected ? scale + 8 : scale / 2],
+        popupAnchor: [0, -scale],
         zIndexOffset: zIndex
     });
 };
@@ -57,16 +55,16 @@ const meIcon = L.divIcon({
     className: 'custom-marker me-marker',
     html: `
         <div style="
-            width: 28px;
-            height: 28px;
-            background: #4f46e5;
+            width: 20px;
+            height: 20px;
+            background: var(--primary);
             border: 3px solid white;
             border-radius: 50%;
-            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.3), 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 0 0 4px var(--primary-glow), var(--shadow-md);
         "></div>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
 });
 
 // Calculate distance using Haversine formula
@@ -246,7 +244,7 @@ const MapComponent = ({
                 ref={mapRef}
             >
                 <MapController center={mapCenter} zoom={mapZoom} bounds={mapBounds} />
-                <TileLayer attribution={DARK_TILE_ATTRIBUTION} url={DARK_TILE_URL} />
+                <TileLayer attribution={TILE_ATTRIBUTION} url={LIGHT_TILE_URL} />
 
                 {users.map(u => {
                     if (!u.lat || !u.lng) return null;
