@@ -63,6 +63,19 @@ const initDB = async () => {
             );
         `);
 
+        // Migration: Add columns to existing table if they don't exist
+        const columns = [
+            ['name', 'VARCHAR(100)'],
+            ['role', 'VARCHAR(50)'],
+            ['vehicle_type', 'VARCHAR(50)'],
+            ['avatar_color', 'VARCHAR(10)'],
+            ['metadata', "JSONB DEFAULT '{}'::jsonb"]
+        ];
+
+        for (const [col, type] of columns) {
+            await pool.query(`ALTER TABLE devices ADD COLUMN IF NOT EXISTS ${col} ${type}`);
+        }
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS location_history (
                 id SERIAL PRIMARY KEY,
