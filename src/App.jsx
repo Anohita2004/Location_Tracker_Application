@@ -228,6 +228,16 @@ function App() {
     setMode('live');
     setHistoryPoints([]);
     setSelectedDate('');
+
+    // Automatically fetch today's history to show the route
+    const today = new Date().toISOString().split('T')[0];
+    axios.get(`/api/history?mobile=${truck.mobile}&date=${today}`)
+      .then(res => {
+        if (res.data.success && res.data.history.length > 0) {
+          setHistoryPoints(res.data.history);
+        }
+      })
+      .catch(err => console.error('Error fetching auto-history:', err));
   };
 
   const enterNavMode = () => {
@@ -256,6 +266,7 @@ function App() {
     setHistoryPoints([]);
     setSelectedDate('');
     setDistance(null);
+    setError('');
   };
 
   const handleDistanceUpdate = (dist) => {

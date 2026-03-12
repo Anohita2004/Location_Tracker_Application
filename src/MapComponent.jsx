@@ -270,18 +270,31 @@ const MapComponent = ({
                 {mode === 'nav' && routeCoordinates.length > 0 && (
                     <Polyline
                         positions={routeCoordinates}
-                        pathOptions={{ color: '#3b82f6', weight: 5, opacity: 0.8 }}
+                        pathOptions={{ color: 'var(--primary)', weight: 6, opacity: 0.6, dashArray: '10, 10' }}
                     />
                 )}
 
-                {mode === 'history' && historyPoints.length > 1 && (
+                {historyPoints.length > 1 && (
                     <>
+                        {/* The Breadcrumb Route */}
                         <Polyline
                             positions={historyPoints.map(p => [p.lat, p.lng])}
-                            pathOptions={{ color: '#10b981', weight: 5, opacity: 0.8 }}
+                            pathOptions={{
+                                color: mode === 'history' ? 'var(--success)' : 'var(--primary)',
+                                weight: 4,
+                                opacity: 0.5,
+                                lineJoin: 'round'
+                            }}
                         />
-                        <Marker position={[historyPoints[0].lat, historyPoints[0].lng]} icon={createCustomIcon('start', 'active', false)} />
-                        <Marker position={[historyPoints[historyPoints.length - 1].lat, historyPoints[historyPoints.length - 1].lng]} icon={createCustomIcon('end', 'active', false)} />
+                        {/* Start Point Marker */}
+                        <Marker
+                            position={[historyPoints[historyPoints.length - 1].lat, historyPoints[historyPoints.length - 1].lng]}
+                            icon={L.divIcon({
+                                className: 'history-dot',
+                                html: '<div style="width: 10px; height: 10px; background: #94a3b8; border: 2px solid white; border-radius: 50%;"></div>',
+                                iconSize: [10, 10]
+                            })}
+                        />
                     </>
                 )}
             </MapContainer>
