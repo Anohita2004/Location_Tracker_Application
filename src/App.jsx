@@ -33,11 +33,12 @@ function App() {
   const [distance, setDistance] = useState(null);
   const [activeTab, setActiveTab] = useState('home'); // home, fleet, map, tracking
   const [activeFleetSubTab, setActiveFleetSubTab] = useState('vehicles'); // drivers, vehicles
+  const [profileForm, setProfileForm] = useState({ name: '', role: 'Driver', vehicle_type: 'Heavy Truck' });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('view') === 'fleet') {
-      setCurrentUser({ mobile: 'Fleet-Manager' });
+      setCurrentUser({ mobile: 'Fleet-Manager', name: 'Fleet Manager', role: 'Manager' });
       setStep('map');
       return;
     }
@@ -47,7 +48,11 @@ function App() {
       try {
         const u = JSON.parse(saved);
         setCurrentUser(u);
-        setStep('map');
+        if (!u.name && u.mobile !== 'Fleet-Manager') {
+          setStep('profile');
+        } else {
+          setStep('map');
+        }
       } catch (e) { setStep('login'); }
     } else {
       setStep('login');
@@ -182,10 +187,32 @@ function App() {
       const res = await axios.post('/api/verify-otp', { mobile, otp });
       if (res.data.success) {
         setCurrentUser(res.data.user);
-        setStep('map');
         localStorage.setItem('tracker_user', JSON.stringify(res.data.user));
+        if (res.data.needsProfile) {
+          setStep('profile');
+        } else {
+          setStep('map');
+        }
       }
     } catch { setError('Invalid OTP'); }
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    if (!profileForm.name) return setError('Please enter your name');
+    try {
+      const res = await axios.post('/api/update-profile', {
+        mobile: currentUser.mobile,
+        ...profileForm
+      });
+      if (res.data.success) {
+        setCurrentUser(res.data.user);
+        localStorage.setItem('tracker_user', JSON.stringify(res.data.user));
+        setStep('map');
+      }
+    } catch (err) {
+      setError('Failed to update profile');
+    }
   };
 
   const handleLogout = () => {
@@ -239,38 +266,88 @@ function App() {
 
   return (
     <div className="app-container">
-      {step === 'login' || step === 'otp' ? (
+      {step === 'login' || step === 'otp' || step === 'profile' ? (
         <div className="login-screen">
           <div className="login-card glass animate-fade" style={{ background: 'white' }}>
-            <div className="login-header">
-              <div className="brand-icon" style={{ filter: 'none' }}>🚛</div>
-              <h1 style={{ background: 'none', WebkitTextFillColor: 'var(--text-main)', color: 'var(--text-main)' }}>FleetOps</h1>
-              <p style={{ color: 'var(--text-sub)' }}>Real-time Asset Intelligence</p>
-            </div>
-
-            <form onSubmit={step === 'login' ? handleLogin : handleVerify} style={{ marginTop: 32 }}>
-              <div className="input-group">
-                <label className="input-label" style={{ color: 'var(--primary)' }}>{step === 'login' ? "Mobile Number" : "Verification Code"}</label>
-                <input
-                  className="modern-input"
-                  style={{ background: '#f8fafc', color: 'var(--text-main)' }}
-                  value={step === 'login' ? mobile : otp}
-                  onChange={e => step === 'login' ? setMobile(e.target.value) : setOtp(e.target.value)}
-                  placeholder={step === 'login' ? "00000 00000" : "Enter 4-digit OTP"}
-                  autoFocus={step === 'otp'}
-                  type={step === 'login' ? "tel" : "text"}
-                />
-                {step === 'otp' && (
-                  <div className="otp-hint">
-                    <span>Test Code: <strong>1234</strong></span>
+            {step === 'profile' ? (
+              <>
+                <div className="login-header">
+                  <div className="brand-icon" style={{ filter: 'none' }}>👤</div>
+                  <h1 style={{ background: 'none', WebkitTextFillColor: 'var(--text-main)', color: 'var(--text-main)' }}>Create Profile</h1>
+                  <p style={{ color: 'var(--text-sub)' }}>Let's personalize your fleet experience</p>
+                </div>
+                <form onSubmit={handleProfileSubmit} style={{ marginTop: 32 }}>
+                  <div className="input-group">
+                    <label className="input-label" style={{ color: 'var(--primary)' }}>Full Name</label>
+                    <input
+                      className="modern-input"
+                      style={{ background: '#f8fafc', color: 'var(--text-main)' }}
+                      value={profileForm.name}
+                      onChange={e => setProfileForm({ ...profileForm, name: e.target.value })}
+                      placeholder="John Doe"
+                      required
+                    />
                   </div>
-                )}
-              </div>
-              {error && <div className="error-message animate-fade">{error}</div>}
-              <button className="btn-primary" type="submit">
-                {step === 'login' ? "Get Started" : "Verify & Continue"}
-              </button>
-            </form>
+                  <div className="input-group">
+                    <label className="input-label" style={{ color: 'var(--primary)' }}>Role</label>
+                    <select
+                      className="modern-input"
+                      style={{ background: '#f8fafc', color: 'var(--text-main)' }}
+                      value={profileForm.role}
+                      onChange={e => setProfileForm({ ...profileForm, role: e.target.value })}
+                    >
+                      <option value="Driver">Driver</option>
+                      <option value="Supervisor">Supervisor</option>
+                      <option value="Fleet Manager">Fleet Manager</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label" style={{ color: 'var(--primary)' }}>Vehicle Type</label>
+                    <input
+                      className="modern-input"
+                      style={{ background: '#f8fafc', color: 'var(--text-main)' }}
+                      value={profileForm.vehicle_type}
+                      onChange={e => setProfileForm({ ...profileForm, vehicle_type: e.target.value })}
+                      placeholder="e.g. Heavy Truck, Van"
+                    />
+                  </div>
+                  {error && <div className="error-message animate-fade">{error}</div>}
+                  <button className="btn-primary" type="submit">Complete Registration</button>
+                </form>
+              </>
+            ) : (
+              <>
+                <div className="login-header">
+                  <div className="brand-icon" style={{ filter: 'none' }}>🚛</div>
+                  <h1 style={{ background: 'none', WebkitTextFillColor: 'var(--text-main)', color: 'var(--text-main)' }}>FleetOps</h1>
+                  <p style={{ color: 'var(--text-sub)' }}>Real-time Asset Intelligence</p>
+                </div>
+
+                <form onSubmit={step === 'login' ? handleLogin : handleVerify} style={{ marginTop: 32 }}>
+                  <div className="input-group">
+                    <label className="input-label" style={{ color: 'var(--primary)' }}>{step === 'login' ? "Mobile Number" : "Verification Code"}</label>
+                    <input
+                      className="modern-input"
+                      style={{ background: '#f8fafc', color: 'var(--text-main)' }}
+                      value={step === 'login' ? mobile : otp}
+                      onChange={e => step === 'login' ? setMobile(e.target.value) : setOtp(e.target.value)}
+                      placeholder={step === 'login' ? "00000 00000" : "Enter 4-digit OTP"}
+                      autoFocus={step === 'otp'}
+                      type={step === 'login' ? "tel" : "text"}
+                    />
+                    {step === 'otp' && (
+                      <div className="otp-hint">
+                        <span>Test Code: <strong>1234</strong></span>
+                      </div>
+                    )}
+                  </div>
+                  {error && <div className="error-message animate-fade">{error}</div>}
+                  <button className="btn-primary" type="submit">
+                    {step === 'login' ? "Get Started" : "Verify & Continue"}
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -280,10 +357,12 @@ function App() {
               <div className="home-view">
                 <div className="user-header">
                   <div className="profile-pill">
-                    <div className="avatar">AC</div>
+                    <div className="avatar" style={{ background: currentUser?.avatar_color || 'var(--primary-glow)', color: 'white' }}>
+                      {currentUser?.name?.charAt(0) || 'U'}
+                    </div>
                     <div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>Welcome!</div>
-                      <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Alfredo Curtis</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>Welcome back,</div>
+                      <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{currentUser?.name || currentUser?.mobile}</div>
                     </div>
                   </div>
                   <div className="fab" style={{ background: '#f1f5f9', width: 44, height: 44 }}><Bell size={20} /></div>
@@ -360,20 +439,19 @@ function App() {
                 <div className="fleet-list">
                   {users.map(u => {
                     const status = getStatus(u.last_updated);
-                    const delId = u.mobile.split('-').pop();
                     return (
                       <div key={u.mobile} className="driver-item" onClick={() => { selectTruck(u); setActiveTab('map'); }}>
-                        <div className="avatar" style={{ background: status === 'active' ? 'var(--primary-glow)' : '#f1f5f9' }}>
-                          {u.mobile.charAt(0)}
+                        <div className="avatar" style={{ background: u.avatar_color || '#f1f5f9', color: u.avatar_color ? 'white' : 'inherit' }}>
+                          {u.name?.charAt(0) || u.mobile.charAt(0)}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{u.mobile}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Tacoma, WA</div>
+                          <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{u.name || u.mobile}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{u.vehicle_type || 'General Cargo'} • {u.mobile}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div className="rating-badge"><Star size={10} fill="currentColor" /> 4.9</div>
                           <div className={`status-chip ${status === 'active' ? 'chip-active' : 'chip-offline'}`} style={{ marginTop: 4 }}>
-                            {status === 'active' ? 'IN LINE' : 'IDLE'}
+                            {status === 'active' ? 'MOVING' : 'IDLE'}
                           </div>
                         </div>
                       </div>
@@ -393,38 +471,72 @@ function App() {
                   mode={mode}
                   onReset={resetView}
                   onDistanceUpdate={handleDistanceUpdate}
+                  onSelectTruck={selectTruck}
                 />
 
                 {selectedDevice && (
-                  <div className="bottom-sheet glass expanded" style={{ background: 'white', borderRadius: '32px 32px 0 0', position: 'absolute', bottom: 80, height: 'auto', padding: '16px 24px 32px' }}>
+                  <div className="bottom-sheet glass expanded" style={{
+                    background: 'white',
+                    borderRadius: '24px 24px 0 0',
+                    position: 'absolute',
+                    bottom: 80,
+                    height: 'auto',
+                    padding: '16px 20px 24px',
+                    boxShadow: '0 -10px 25px -5px rgba(0,0,0,0.1)',
+                    maxHeight: '60vh',
+                    overflowY: 'auto'
+                  }}>
                     <div className="sheet-handle"></div>
-                    <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-                      <div style={{ width: 80, height: 80, background: 'var(--primary-glow)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
-                        <Truck size={40} color="var(--primary)" />
+                    <div style={{ display: 'flex', gap: 16, alignItems: 'start' }}>
+                      <div style={{ width: 64, height: 64, background: selectedDevice.avatar_color || 'var(--primary-glow)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'white' }}>
+                        {selectedDevice.name?.charAt(0) || '🚛'}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>{selectedDevice.mobile}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{selectedDevice.name || selectedDevice.mobile}</div>
                           <div className={`status-chip ${getStatus(selectedDevice.last_updated) === 'active' ? 'chip-active' : 'chip-offline'}`}>
                             {getStatus(selectedDevice.last_updated)}
                           </div>
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)', fontWeight: 600, marginTop: 4 }}>
-                          SAP DELIVERY: {selectedDevice.mobile.split('-').pop().padStart(6, '0')}
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)', fontWeight: 600, marginTop: 2 }}>
+                          {selectedDevice.vehicle_type || 'Fleet Asset'} • {selectedDevice.mobile}
                         </div>
-                        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-                          <div style={{ background: '#f8fafc', padding: '6px 12px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', border: '1px solid var(--border-subtle)' }}>
-                            � {selectedDevice.lat.toFixed(4)}, {selectedDevice.lng.toFixed(4)}
+
+                        {/* ABAP Metadata Section */}
+                        <div style={{ marginTop: 16, padding: '12px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                          <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.05em', marginBottom: 8 }}>ABAP BACKEND INFORMATION</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <div style={{ fontSize: '0.75rem' }}><span style={{ color: 'var(--text-sub)' }}>Status:</span> <span style={{ fontWeight: 600 }}>{selectedDevice.metadata?.Status || 'Syncing...'}</span></div>
+                            <div style={{ fontSize: '0.75rem' }}><span style={{ color: 'var(--text-sub)' }}>Load:</span> <span style={{ fontWeight: 600 }}>{selectedDevice.metadata?.Load_Weight || '75%'}</span></div>
+                            <div style={{ fontSize: '0.75rem' }}><span style={{ color: 'var(--text-sub)' }}>Next Stop:</span> <span style={{ fontWeight: 600 }}>{selectedDevice.metadata?.Next_Hub || 'N/A'}</span></div>
+                            <div style={{ fontSize: '0.75rem' }}><span style={{ color: 'var(--text-sub)' }}>ETA:</span> <span style={{ fontWeight: 600 }}>{selectedDevice.metadata?.ETA || 'Calculating...'}</span></div>
                           </div>
-                          <div style={{ background: '#f8fafc', padding: '6px 12px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', border: '1px solid var(--border-subtle)' }}>
-                            � {new Date(selectedDevice.last_updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {selectedDevice.metadata && Object.keys(selectedDevice.metadata).length > 4 && (
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #e2e8f0' }}>
+                              {Object.entries(selectedDevice.metadata).map(([key, val]) => (
+                                !['Status', 'Load_Weight', 'Next_Hub', 'ETA'].includes(key) && (
+                                  <div key={key} style={{ fontSize: '0.7rem', marginTop: 2 }}>
+                                    <span style={{ color: 'var(--text-sub)' }}>{key}:</span> <span style={{ fontWeight: 600 }}>{typeof val === 'object' ? JSON.stringify(val) : val}</span>
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                          <div style={{ background: 'white', padding: '6px 12px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', border: '1px solid var(--border-subtle)' }}>
+                            📍 {selectedDevice.lat.toFixed(4)}, {selectedDevice.lng.toFixed(4)}
+                          </div>
+                          <div style={{ background: 'white', padding: '6px 12px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary)', border: '1px solid var(--border-subtle)' }}>
+                            🕒 {new Date(selectedDevice.last_updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                      <button className="btn-primary" style={{ flex: 1 }} onClick={enterNavMode}>Track Route</button>
-                      <button className="btn-primary" style={{ flex: 1, background: '#f8fafc', color: 'var(--text-main)', boxShadow: 'none', border: '1px solid var(--border-subtle)' }} onClick={() => setSelectedMobile(null)}>Close</button>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+                      <button className="btn-primary" style={{ flex: 1, padding: '12px', fontSize: '0.9rem' }} onClick={enterNavMode}>Track Route</button>
+                      <button className="btn-primary" style={{ flex: 1, background: 'white', color: 'var(--text-main)', boxShadow: 'none', border: '1px solid var(--border-subtle)', padding: '12px', fontSize: '0.9rem' }} onClick={() => setSelectedMobile(null)}>Dismiss</button>
                     </div>
                   </div>
                 )}
@@ -467,6 +579,60 @@ function App() {
                 </div>
               </div>
             )}
+
+            {activeTab === 'profile' && (
+              <div className="profile-view">
+                <div className="user-header">
+                  <h2 style={{ fontWeight: 800 }}>Profile Settings</h2>
+                </div>
+
+                <div className="card-elevated" style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <div className="avatar" style={{
+                    width: 80,
+                    height: 80,
+                    margin: '0 auto 16px',
+                    fontSize: '2rem',
+                    background: currentUser?.avatar_color || 'var(--primary)',
+                    color: 'white',
+                    border: '4px solid white',
+                    boxShadow: 'var(--shadow-md)'
+                  }}>
+                    {currentUser?.name?.charAt(0) || 'U'}
+                  </div>
+                  <h3 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{currentUser?.name || 'User'}</h3>
+                  <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem' }}>{currentUser?.role || 'Fleet Personnel'} • {currentUser?.mobile}</p>
+                </div>
+
+                <div className="card-elevated" style={{ padding: 0, overflow: 'hidden' }}>
+                  {[
+                    { label: 'Edit Profile', icon: <User size={18} />, action: () => setStep('profile') },
+                    { label: 'Notifications', icon: <Bell size={18} /> },
+                    { label: 'Security', icon: <Settings size={18} /> },
+                    { label: 'Help Center', icon: <HelpCircle size={18} /> },
+                    { label: 'Sign Out', icon: <LogOut size={18} />, color: 'var(--danger)', action: handleLogout },
+                  ].map((item, idx) => (
+                    <div key={idx}
+                      onClick={item.action}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 16,
+                        padding: '20px 24px',
+                        borderBottom: idx === 4 ? 'none' : '1px solid #f1f5f9',
+                        cursor: 'pointer',
+                        color: item.color || 'inherit',
+                        transition: 'background 0.2s'
+                      }}
+                      className="profile-menu-item"
+                    >
+                      <div style={{ opacity: 0.7 }}>{item.icon}</div>
+                      <span style={{ fontWeight: 600, flex: 1 }}>{item.label}</span>
+                      <ChevronRight size={18} opacity={0.3} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bottom-nav">
@@ -486,7 +652,7 @@ function App() {
               <LayoutList size={24} />
               <span>Spendings</span>
             </div>
-            <div className="nav-item">
+            <div className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
               <User size={24} />
               <span>Profile</span>
             </div>

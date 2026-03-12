@@ -52,9 +52,14 @@ const initDB = async () => {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS devices (
                 mobile VARCHAR(20) PRIMARY KEY,
+                name VARCHAR(100),
+                role VARCHAR(50),
+                vehicle_type VARCHAR(50),
+                avatar_color VARCHAR(10),
                 lat DOUBLE PRECISION,
                 lng DOUBLE PRECISION,
-                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata JSONB DEFAULT '{}'::jsonb
             );
         `);
 
@@ -151,7 +156,7 @@ app.get('/api/history', async (req, res) => {
 // GET all devices status (SAP/ABAP Friendly)
 app.get('/api/devices', async (req, res) => {
     try {
-        const result = await pool.query('SELECT mobile, lat, lng, last_updated, mobile AS "Mobile_no", lat AS "Latitude", lng AS "Longitude", last_updated AS "Capturedat" FROM devices');
+        const result = await pool.query('SELECT *, mobile AS "Mobile_no", lat AS "Latitude", lng AS "Longitude", last_updated AS "Capturedat" FROM devices');
         res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
@@ -192,17 +197,42 @@ app.post('/api/verify-otp', async (req, res) => {
             let user = checkRes.rows[0];
 
             if (!user) {
-                await pool.query('INSERT INTO devices (mobile, last_updated) VALUES ($1, NOW())', [mobile]);
-                user = { mobile, lat: null, lng: null, last_updated: new Date() };
+                const colors = ['#0d9488', '#0891b2', '#4f46e5', '#7c3aed', '#db2777'];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                await pool.query('INSERT INTO devices (mobile, last_updated, avatar_color) VALUES ($1, NOW(), $2)', [mobile, randomColor]);
+                user = { mobile, lat: null, lng: null, last_updated: new Date(), avatar_color: randomColor };
             }
 
-            res.json({ success: true, user });
+            const needsProfile = !user.name;
+            res.json({ success: true, user, needsProfile });
         } catch (err) {
             console.error(err);
             res.status(500).json({ success: false, message: 'Database error' });
         }
     } else {
         res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+});
+
+app.post('/api/update-profile', async (req, res) => {
+    const { mobile, name, role, vehicle_type } = req.body;
+    if (!mobile || !name) return res.status(400).json({ success: false, message: 'Missing data' });
+
+    try {
+        const query = `
+            UPDATE devices 
+            SET name = $2, role = $3, vehicle_type = $4 
+            WHERE mobile = $1 
+            RETURNING *;
+        `;
+        const result = await pool.query(query, [mobile, name, role, vehicle_type]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.json({ success: true, user: result.rows[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Database error' });
     }
 });
 
@@ -251,19 +281,34 @@ app.post('/api/sap-sync', async (req, res) => {
             const lng = parseFloat(item.Longitude || item.lng);
             const timestamp = item.Capturedat || item.last_updated || new Date();
 
+            // Extract all other fields as metadata
+            const metadata = { ...item };
+            delete metadata.Mobile_no;
+            delete metadata.mobile;
+            delete metadata.Latitude;
+            delete metadata.lat;
+            delete metadata.Longitude;
+            delete metadata.lng;
+            delete metadata.Capturedat;
+            delete metadata.last_updated;
+
             if (!mobile || isNaN(lat) || isNaN(lng)) {
                 results.push({ mobile: mobile || 'unknown', success: false, error: 'Missing or invalid data' });
                 continue;
             }
 
             const query = `
-                INSERT INTO devices (mobile, lat, lng, last_updated)
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO devices (mobile, lat, lng, last_updated, metadata)
+                VALUES ($1, $2, $3, $4, $5)
                 ON CONFLICT (mobile) 
-                DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, last_updated = EXCLUDED.last_updated
+                DO UPDATE SET 
+                    lat = EXCLUDED.lat, 
+                    lng = EXCLUDED.lng, 
+                    last_updated = EXCLUDED.last_updated,
+                    metadata = EXCLUDED.metadata
                 RETURNING *;
             `;
-            const result = await pool.query(query, [mobile, lat, lng, timestamp]);
+            const result = await pool.query(query, [mobile, lat, lng, timestamp, JSON.stringify(metadata)]);
             const updatedUser = result.rows[0];
 
             await pool.query('INSERT INTO location_history (mobile, lat, lng, timestamp) VALUES ($1, $2, $3, $4)', [mobile, lat, lng, timestamp]);

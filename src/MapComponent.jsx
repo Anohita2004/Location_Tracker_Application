@@ -111,7 +111,8 @@ const MapComponent = ({
     historyPoints = [],
     mode = 'live',
     onReset,
-    onDistanceUpdate
+    onDistanceUpdate,
+    onSelectTruck
 }) => {
     const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]);
     const [mapZoom, setMapZoom] = useState(5);
@@ -257,6 +258,11 @@ const MapComponent = ({
                             key={u.mobile}
                             position={[u.lat, u.lng]}
                             icon={isMe ? meIcon : createCustomIcon('truck', status, isSelected)}
+                            eventHandlers={{
+                                click: () => {
+                                    if (onSelectTruck) onSelectTruck(u);
+                                },
+                            }}
                         />
                     );
                 })}
