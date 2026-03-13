@@ -379,36 +379,110 @@ function App() {
                   <div className="fab" style={{ background: '#f1f5f9', width: 44, height: 44 }}><Bell size={20} /></div>
                 </div>
 
-                <div className="card-elevated" style={{ background: 'var(--primary)', color: 'white', position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.1 }}><Truck size={120} /></div>
-                  <div style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: 4 }}>Fleet Performance</div>
-                  <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>Live tracking is active</div>
-                  <div className="kpi-grid" style={{ marginTop: 20 }}>
+                <div className="card-elevated" style={{
+                  background: 'var(--primary-gradient)',
+                  color: 'white',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  padding: '32px 24px',
+                  border: 'none'
+                }}>
+                  <div style={{ position: 'absolute', right: -30, bottom: -30, opacity: 0.1, transform: 'rotate(-15deg)' }}><Truck size={160} /></div>
+                  <div style={{ position: 'absolute', left: '10%', top: '-20%', width: '150px', height: '150px', background: 'white', opacity: 0.1, filter: 'blur(60px)', borderRadius: '50%' }}></div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '1.4rem', marginBottom: 4, letterSpacing: '-0.02em' }}>Fleet Pulse</div>
+                      <div style={{ fontSize: '0.85rem', opacity: 0.9, fontWeight: 500 }}>Operational Excellence • Live</div>
+                    </div>
+                    <div className="status-chip chip-active" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
+                      SYSTEM NOMINAL
+                    </div>
+                  </div>
+
+                  <div className="kpi-grid" style={{ marginTop: 32, gap: 24 }}>
                     <div className="kpi-item">
-                      <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>{users.length}</div>
-                      <div style={{ fontSize: '0.7rem', fontWeight: 600, opacity: 0.7 }}>TOTAL TRUCKS</div>
+                      <div style={{ fontSize: '2.2rem', fontWeight: 900, marginBottom: 4 }}>{users.length}</div>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>TOTAL ASSETS</div>
                     </div>
                     <div className="kpi-item">
-                      <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>{users.filter(u => getStatus(u.last_updated) === 'active').length}</div>
-                      <div style={{ fontSize: '0.7rem', fontWeight: 600, opacity: 0.7 }}>ON BROADCAST</div>
+                      <div style={{ fontSize: '2.2rem', fontWeight: 900, marginBottom: 4 }}>{users.filter(u => getStatus(u.last_updated) === 'active').length}</div>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>LIVE BROADCAST</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="card-elevated">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <div style={{ fontWeight: 700 }}>Fleet Activity</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>See all</div>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '0 4px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>Quick Actions</div>
                   </div>
-                  <div className="chart-area">
-                    <svg className="wave-svg" viewBox="0 0 100 30" preserveAspectRatio="none">
-                      <path d="M0 25 C 20 20, 40 28, 60 22 S 80 15, 100 25 V 30 H 0 Z" />
-                      <path d="M0 25 C 20 20, 40 28, 60 22 S 80 15, 100 25" fill="none" />
+                  <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }}>
+                    {[
+                      { icon: <Navigation size={20} />, label: 'Navigate', color: 'var(--primary)' },
+                      { icon: <History size={20} />, label: 'History', color: 'var(--secondary)' },
+                      { icon: <Bell size={20} />, label: 'Alerts', color: 'var(--warning)' },
+                      { icon: <Settings size={20} />, label: 'Config', color: 'var(--text-sub)' }
+                    ].map((action, i) => (
+                      <div key={i} style={{
+                        flex: '0 0 auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 8,
+                        width: 80
+                      }}>
+                        <div style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: 20,
+                          background: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: action.color,
+                          boxShadow: 'var(--shadow-md)',
+                          border: '1px solid var(--border-subtle)'
+                        }}>
+                          {action.icon}
+                        </div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-sub)' }}>{action.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+
+                <div className="card-elevated" style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <div style={{ fontWeight: 800, fontSize: '1rem' }}>Fleet Activity</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 700, background: 'var(--primary-glow)', padding: '4px 12px', borderRadius: 20 }}>LIVE UPDATES</div>
+                  </div>
+                  <div className="chart-area" style={{ height: 140, marginBottom: 12 }}>
+                    <svg className="wave-svg" viewBox="0 0 100 30" preserveAspectRatio="none" style={{ filter: 'drop-shadow(0 4px 12px var(--primary-glow))' }}>
+                      <defs>
+                        <linearGradient id="waveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.3" />
+                          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M0 25 C 20 20, 40 28, 60 22 S 80 15, 100 25 V 30 H 0 Z" fill="url(#waveGradient)" />
+                      <path d="M0 25 C 20 20, 40 28, 60 22 S 80 15, 100 25" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" />
+
+                      {/* Animated Pulse Dots */}
+                      <circle cx="20" cy="21" r="1.5" fill="var(--primary)">
+                        <animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite" />
+                      </circle>
+                      <circle cx="60" cy="22" r="1.5" fill="var(--primary)">
+                        <animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite" />
+                      </circle>
                     </svg>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
-                      <span key={day} style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 600 }}>{day}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, i) => (
+                      <div key={day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <div style={{ height: 4, width: 4, borderRadius: '50%', background: i === 4 ? 'var(--primary)' : 'var(--border-subtle)' }}></div>
+                        <span style={{ fontSize: '0.65rem', color: i === 4 ? 'var(--text-main)' : 'var(--text-sub)', fontWeight: 700 }}>{day}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -448,20 +522,28 @@ function App() {
                 </div>
 
                 <div className="fleet-list">
-                  {users.map(u => {
+                  {users.map((u, i) => {
                     const status = getStatus(u.last_updated);
                     return (
-                      <div key={u.mobile} className="driver-item" onClick={() => { selectTruck(u); setActiveTab('map'); }}>
-                        <div className="avatar" style={{ background: u.avatar_color || '#f1f5f9', color: u.avatar_color ? 'white' : 'inherit' }}>
+                      <div key={u.mobile}
+                        className={`driver-item animate-fade stagger-${(i % 4) + 1}`}
+                        onClick={() => { selectTruck(u); setActiveTab('map'); }}
+                      >
+                        <div className="avatar" style={{
+                          background: u.avatar_color || 'var(--primary-glow)',
+                          color: u.avatar_color ? 'white' : 'var(--primary)',
+                          border: '2px solid white',
+                          boxShadow: 'var(--shadow-sm)'
+                        }}>
                           {u.name?.charAt(0) || u.mobile.charAt(0)}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{u.name || u.mobile}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{u.vehicle_type || 'General Cargo'} • {u.mobile}</div>
+                          <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>{u.name || u.mobile}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', fontWeight: 600 }}>{u.vehicle_type || 'General Cargo'} • {u.mobile}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div className="rating-badge"><Star size={10} fill="currentColor" /> 4.9</div>
-                          <div className={`status-chip ${status === 'active' ? 'chip-active' : 'chip-offline'}`} style={{ marginTop: 4 }}>
+                          <div className={`status-chip ${status === 'active' ? 'chip-active' : 'chip-offline'}`} style={{ marginTop: 6 }}>
                             {status === 'active' ? 'MOVING' : 'IDLE'}
                           </div>
                         </div>
@@ -469,6 +551,7 @@ function App() {
                     );
                   })}
                 </div>
+
               </div>
             )}
 
@@ -560,18 +643,26 @@ function App() {
                   <h2 style={{ fontWeight: 800 }}>Spending</h2>
                 </div>
                 {/* Spend Analysis Chart inspired by mockup */}
-                <div className="card-elevated" style={{ padding: 32 }}>
+                <div className="card-elevated" style={{ padding: 32, background: 'var(--bg-dark)', border: 'none' }}>
                   <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)', fontWeight: 600 }}>SEPTEMBER TOTAL</div>
-                    <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>$1,234</div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', fontWeight: 800, letterSpacing: '0.1em' }}>SEPTEMBER EXPENDITURE</div>
+                    <div style={{ fontSize: '3rem', fontWeight: 900, color: 'white', letterSpacing: '-0.02em' }}>$1,234.50</div>
                   </div>
-                  <div className="chart-area" style={{ height: 200 }}>
+                  <div className="chart-area" style={{ height: 160, marginTop: 20 }}>
                     <svg className="wave-svg" viewBox="0 0 100 30" preserveAspectRatio="none">
-                      <path d="M0 25 C 20 10, 40 28, 60 15 S 80 5, 100 20 V 30 H 0 Z" />
-                      <line x1="60" y1="0" x2="60" y2="30" stroke="var(--primary)" strokeDasharray="2" opacity="0.3" />
+                      <defs>
+                        <linearGradient id="spendGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.5" />
+                          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M0 25 C 20 10, 40 28, 60 15 S 80 5, 100 20 V 30 H 0 Z" fill="url(#spendGradient)" />
+                      <path d="M0 25 C 20 10, 40 28, 60 15 S 80 5, 100 20" fill="none" stroke="var(--primary)" strokeWidth="2" />
+                      <line x1="60" y1="0" x2="60" y2="30" stroke="white" strokeDasharray="4" opacity="0.1" />
                     </svg>
                   </div>
                 </div>
+
 
                 <div className="card-elevated">
                   <div style={{ fontWeight: 700, marginBottom: 16 }}>Invoices List</div>
@@ -669,8 +760,9 @@ function App() {
             </div>
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 }
 

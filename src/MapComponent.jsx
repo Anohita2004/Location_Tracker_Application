@@ -15,7 +15,9 @@ L.Icon.Default.mergeOptions({
 
 // Light theme tile layer (Clean & Minimal)
 const LIGHT_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const DARK_TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
 
 // Define custom icons using L.divIcon
 const createCustomIcon = (type, status, isSelected) => {
@@ -35,10 +37,10 @@ const createCustomIcon = (type, status, isSelected) => {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+                box-shadow: ${status === 'active' ? '0 0 15px var(--primary-glow)' : '0 4px 10px rgba(0,0,0,0.1)'};
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             ">
-                <div style="font-size: ${scale / 1.6}px; display: flex;">
+                <div style="font-size: ${scale / 1.6}px; display: flex; filter: ${status === 'active' ? 'drop-shadow(0 0 2px var(--primary))' : 'none'}">
                     ${type === 'me' ? '👤' : (isSelected ? '🚛' : '🚚')}
                 </div>
                 ${isSelected ? `<div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--primary);"></div>` : ''}
@@ -50,6 +52,7 @@ const createCustomIcon = (type, status, isSelected) => {
         zIndexOffset: zIndex
     });
 };
+
 
 const meIcon = L.divIcon({
     className: 'custom-marker me-marker',
@@ -245,7 +248,11 @@ const MapComponent = ({
                 ref={mapRef}
             >
                 <MapController center={mapCenter} zoom={mapZoom} bounds={mapBounds} />
-                <TileLayer attribution={TILE_ATTRIBUTION} url={LIGHT_TILE_URL} />
+                <TileLayer
+                    attribution={TILE_ATTRIBUTION}
+                    url={window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK_TILE_URL : LIGHT_TILE_URL}
+                />
+
 
                 {users.map(u => {
                     if (!u.lat || !u.lng) return null;

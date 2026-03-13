@@ -1,26 +1,57 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --primary: #0d9488;
-  /* Teal-600 */
-  --primary-bright: #14b8a6;
-  /* Teal-500 */
-  --primary-glow: rgba(13, 148, 136, 0.15);
+  --primary: #06b6d4;
+  /* Cyan-500 */
+  --primary-bright: #22d3ee;
+  /* Cyan-400 */
+  --primary-deep: #0891b2;
+  /* Cyan-600 */
+  --primary-glow: rgba(6, 182, 212, 0.15);
+  --primary-gradient: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+
+  --secondary: #6366f1;
+  /* Indigo-500 */
+  --secondary-gradient: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
+
   --bg-light: #f8fafc;
+  --bg-dark: #0f172a;
+
   --card-bg: #ffffff;
   --border-subtle: #f1f5f9;
   --text-main: #0f172a;
   --text-sub: #64748b;
+
   --font-main: 'Outfit', 'Inter', system-ui, sans-serif;
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   --radius-xl: 32px;
   --radius-lg: 24px;
   --radius-md: 16px;
+  --radius-sm: 12px;
+
   --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px rgba(6, 182, 212, 0.3);
+
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-light: #0f172a;
+    --card-bg: #1e293b;
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --text-main: #f8fafc;
+    --text-sub: #94a3b8;
+    --glass-bg: rgba(30, 41, 59, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.05);
+  }
 }
 
 * {
@@ -48,14 +79,21 @@ body {
   overflow: hidden;
 }
 
+/* Enhanced Selection */
+::selection {
+  background: var(--primary-glow);
+  color: var(--primary);
+}
+
 /* Enhanced Glassmorphism */
 .glass {
-  background: var(--card-bg);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
 }
+
 
 /* Base Layout Enhancements */
 .app-container {
@@ -84,10 +122,21 @@ body {
 .card-elevated {
   background: var(--card-bg);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 24px;
   box-shadow: var(--shadow-md);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-subtle);
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
 }
+
+.card-elevated:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-glow);
+}
+
 
 /* Bottom Navigation */
 .bottom-nav {
@@ -278,7 +327,7 @@ body {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px);
   }
 
   to {
@@ -286,6 +335,23 @@ body {
     transform: translateY(0);
   }
 }
+
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+
+.stagger-4 {
+  animation-delay: 0.4s;
+}
+
 
 .pulse-me {
   width: 14px;
@@ -316,15 +382,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-dark);
+  background: #020617;
   background-image:
-    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(79, 70, 229, 0.1) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(239, 68, 68, 0.05) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(99, 102, 241, 0.1) 0px, transparent 50%);
   z-index: 3000;
   padding: 24px;
 }
+
 
 .login-card {
   width: 100%;
@@ -630,20 +697,26 @@ body {
 .fab {
   width: 56px;
   height: 56px;
-  border-radius: 18px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: var(--transition);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+  box-shadow: var(--shadow-lg);
 }
 
 .fab:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  background: var(--primary-glow);
+  transform: translateY(-4px) scale(1.05);
+  border-color: var(--primary);
+  color: var(--primary);
 }
+
 
 .fab:active {
   transform: scale(0.95) translateY(0);
